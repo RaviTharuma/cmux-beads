@@ -35,6 +35,7 @@ pub fn help_lines() -> Vec<(&'static str, &'static str)> {
         ("?", "this help"),
         ("q / Ctrl+C", "quit"),
         ("Esc", "back out a layer (never quits)"),
+        ("mouse", "not forwarded — no drag-and-drop"),
     ]
 }
 
@@ -241,5 +242,14 @@ mod tests {
         assert_eq!(app.view, BoardView::Table);
         press(&mut app, KeyCode::Tab);
         assert_eq!(app.view, BoardView::Kanban);
+    }
+
+    #[test]
+    fn help_says_mouse_is_not_forwarded() {
+        let rows = help_lines();
+        assert!(
+            rows.iter()
+                .any(|(key, action)| *key == "mouse" && action.contains("no drag-and-drop"))
+        );
     }
 }

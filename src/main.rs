@@ -141,11 +141,18 @@ fn event_loop(
     loop {
         terminal.draw(|frame| ui::draw(frame, &app))?;
 
-        if event::poll(POLL_EVERY)?
-            && let Event::Key(key) = event::read()?
-            && keys::handle_key(&mut app, key)
-        {
-            break;
+        if event::poll(POLL_EVERY)? {
+            match event::read()? {
+                Event::Key(key) => {
+                    if keys::handle_key(&mut app, key) {
+                        break;
+                    }
+                }
+                // Sidebar PTYs get SIGWINCH as a normal resize. Mouse is not
+                // forwarded to plugins — do not enable capture or invent DnD.
+                Event::Resize(_, _) => {}
+                Event::Mouse(_) | Event::FocusGained | Event::FocusLost | Event::Paste(_) => {}
+            }
         }
 
         if app.should_quit {
@@ -177,6 +184,22 @@ mod tests {
         assert!(
             !raw.contains("cmux-sidebar-beads"),
             "old crate name must be gone"
+        );
+    }
+
+    #[test]
+    fn event_loop_does_not_enable_mouse_or_invent_dnd() {
+        let code = include_str!("main.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .expect("main.rs has a test module");
+        assert!(
+            !code.contains("MouseCapture"),
+            "PTY sidebar plugins do not receive mouse"
+        );
+        assert!(
+            code.contains("Event::Resize"),
+            "sidebar PTYs observe SIGWINCH as a normal resize"
         );
     }
 }

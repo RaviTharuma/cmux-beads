@@ -435,6 +435,25 @@ mod tests {
     }
 
     #[test]
+    fn lab_fixture_is_synthetic_and_has_no_pii() {
+        let raw = include_str!("../../tests/fixtures/lab.json");
+        assert!(!raw.contains('@'), "lab shots must not include emails");
+        assert!(
+            !raw.contains("/Users/"),
+            "lab shots must not include home paths"
+        );
+        assert!(
+            !raw.contains("/home/"),
+            "lab shots must not include home paths"
+        );
+        let beads = parse_list(raw).expect("lab.json parses");
+        let titles: Vec<_> = beads.iter().map(|bead| bead.title.as_str()).collect();
+        assert!(titles.contains(&"Ship onboarding"));
+        assert!(titles.contains(&"Fix login timeout"));
+        assert!(beads.iter().all(|bead| bead.id.starts_with("lab-")));
+    }
+
+    #[test]
     fn parses_list_fixture() {
         let raw = include_str!("../../tests/fixtures/list.json");
         let beads = parse_list(raw).expect("list.json parses");
