@@ -1,8 +1,8 @@
 [plugin]
 name = "cmux-beads"
 kind = "sidebar"
-version = "0.2.1"
-description = "Official Beads GUI in the cmux right sidebar; PTY TUI is keyboard-only fallback"
+version = "0.2.2"
+description = "Official Beads tab on the cmux right sidebar; PTY TUI is keyboard-only fallback"
 
 [run]
 command = ["target/release/cmux-beads"]

@@ -1,6 +1,15 @@
-// Beads — official GUI inside cmux (`beads`).
+// CONTRIB / LEGACY — NOT THE PRODUCT.
+// Interpreted custom-sidebar scene for the generic Custom slot
+// (`cmux right-sidebar set custom beads`). Kept in-tree for reference only.
+//
+// The product is Beads as a tab on the existing right sidebar, a sibling of
+// Files / Find / Dock:
+//   cmux right-sidebar set beads                       host tab (built-in)
+//   cmux sidebar plugin install <cmux-beads repo>.git  plugin package
+//   cmux sidebar plugin use cmux-beads
+//
 // Restricted JS scene (cmux docs/custom-sidebars.md). Native right-sidebar
-// panel, not an iframe and not a PTY stuffed in a pane.
+// rendering, not an iframe and not a PTY stuffed in a pane.
 // Chrome matches built-in right-sidebar examples: glass surface, 14pt title,
 // 10/13 type, 8–10pt continuous corners, host hover wash, Reorderable.
 // Bind only live cmux context. Taps run cmux() only. No bd, no filesystem.

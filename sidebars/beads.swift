@@ -1,6 +1,15 @@
-// Beads — official GUI inside cmux (`beads`).
+// CONTRIB / LEGACY — NOT THE PRODUCT.
+// Interpreted custom-sidebar scene for the generic Custom slot
+// (`cmux right-sidebar set custom beads`). Kept in-tree for reference only.
+//
+// The product is Beads as a tab on the existing right sidebar, a sibling of
+// Files / Find / Dock:
+//   cmux right-sidebar set beads                       host tab (built-in)
+//   cmux sidebar plugin install <cmux-beads repo>.git  plugin package
+//   cmux sidebar plugin use cmux-beads
+//
 // Restricted Swift subset (cmux docs/custom-sidebars.md). Native right-sidebar
-// panel, not an iframe and not a PTY stuffed in a pane. Root is a view
+// rendering, not an iframe and not a PTY stuffed in a pane. Root is a view
 // expression, not a struct. Bind only live cmux context: workspaces, tabs,
 // statuses, agents, progress, git, color. No invented team or fake rows.
 // The Beads board is the product. Host workspaces are the switcher.

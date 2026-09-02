@@ -89,41 +89,53 @@ where
     }
 }
 
-/// User-facing help. Product path first; TUI labeled keyboard-only.
-pub fn print_help() {
+/// Rendered user-facing help. Right-sidebar tab paths first; TUI is a
+/// keyboard-only fallback, and pane / left-list commands are called out as
+/// explicitly not the product.
+#[must_use]
+pub fn help_text() -> String {
     let version = env!("CARGO_PKG_VERSION");
-    eprintln!(
+    format!(
         "\
-cmux-beads {version} — native Beads sidebar for cmux
+cmux-beads {version} — official Beads tab on the cmux right sidebar
+
+Beads is a tab on the existing right sidebar (sibling of Files / Find / Dock),
+not a pane and not the left workspace list.
 
 Product (native UI, mouse / click / drag-and-drop):
-  cmux-beads install
-  cmux right-sidebar set custom beads
-  cmux-beads watch
+  cmux right-sidebar set beads                       host tab (built-in)
+  cmux sidebar plugin install https://github.com/RaviTharuma/cmux-beads.git
+  cmux sidebar plugin use cmux-beads                 plugin package
+  cmux-beads watch                                   project bd → bead:<id> pills
 
-  install   copy sidebars/beads.js (and .swift) to ~/.config/cmux/sidebars/
+Commands:
   sync      one-shot project bd issues → cmux set-status (bead:<id>)
   watch     loop sync (default 3s)
   status    print the current projection plan
   clear     remove bead:* keys only
   update    persist a bd status change via argv, then refresh pills
+  install   contrib/legacy: copy sidebars/beads.js (and .swift) to
+            ~/.config/cmux/sidebars/ for the generic Custom slot
+
+Not the product:
+  cmux sidebar open beads               opens a pane
+  cmux sidebar select beads             replaces the left workspace list
+  cmux right-sidebar set custom beads   generic Custom slot, not a Beads tab
 
 Keyboard-only fallback (PTY plugin — no mouse):
-  cmux sidebar plugin install https://github.com/RaviTharuma/cmux-beads.git
-  cmux sidebar plugin use cmux-beads
   cmux-beads [--cwd DIR] [--selftest]
 
 Flags:
   --cwd DIR            bd working directory (default: focused pane cwd)
   --workspace ID       cmux workspace for set-status (or CMUX_WORKSPACE_ID)
   --include-closed     project closed issues too
-  --interval SECS      watch interval (default 3)
-  --dry-run            print cmux argv, do not write
-  --json               machine-readable sync/status output
-  --status NAME        update: bd update <id> -s NAME
-  --claim              update: bd update <id> --claim
 "
-    );
+    )
+}
+
+/// Print [`help_text`] to stderr.
+pub fn print_help() {
+    eprintln!("{}", help_text());
 }
 
 fn parse_tui<I>(args: &mut std::iter::Peekable<I>) -> Result<Command, i32>
@@ -300,11 +312,35 @@ mod tests {
     }
 
     #[test]
-    fn help_text_is_the_product_path() {
-        let help = include_str!("cli.rs");
-        assert!(help.contains("cmux right-sidebar set custom beads"));
+    fn help_leads_with_the_right_sidebar_tab() {
+        let help = help_text();
+        assert!(help.contains("cmux right-sidebar set beads"));
+        assert!(help.contains("cmux sidebar plugin install"));
+        assert!(help.contains("cmux sidebar plugin use cmux-beads"));
         assert!(help.contains("cmux-beads watch"));
         assert!(help.contains("Keyboard-only fallback"));
-        assert!(help.contains("cmux sidebar plugin install"));
+    }
+
+    #[test]
+    fn help_marks_pane_and_left_list_commands_as_not_the_product() {
+        let help = help_text();
+        let (_, disclaimed) = help
+            .split_once("Not the product:")
+            .expect("help lists non-product commands");
+        for command in [
+            "cmux sidebar open beads",
+            "cmux sidebar select beads",
+            "cmux right-sidebar set custom beads",
+        ] {
+            assert_eq!(
+                help.matches(command).count(),
+                1,
+                "{command} must appear only under 'Not the product:'"
+            );
+            assert!(
+                disclaimed.contains(command),
+                "{command} must be listed under 'Not the product:'"
+            );
+        }
     }
 }

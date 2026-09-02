@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.2] - 2026-09-02
+
+Beads is a **tab on the existing right sidebar** (sibling of Files / Find /
+Dock), not a pane and not the left workspace list. Docs, CLI help, and scripts
+now say so.
+
+### Changed
+
+- Product paths are the built-in host tab (`cmux right-sidebar set beads`,
+  manaflow-ai/cmux#11707 / #11709) and the official plugin manager
+  (`cmux sidebar plugin install …` / `use cmux-beads`). `cmux-beads watch`
+  still projects `bd` issues into `bead:<id>` pills for both.
+- `cmux-beads --help` leads with those paths and lists
+  `cmux sidebar open beads` (pane), `cmux sidebar select beads` (left workspace
+  list), and `cmux right-sidebar set custom beads` (generic Custom slot) under
+  an explicit "Not the product" heading. Help is now rendered by
+  `cli::help_text()` so tests assert the rendered string, not source text.
+- `scripts/install.sh` is a contributor/dev CLI symlink helper. It no longer
+  copies interpreted sidebar scenes by default; pass `--legacy-custom-sidebar`
+  for that. Next steps point at the right-sidebar tab and plugin manager.
+- `cmux-beads install` is labeled contrib/legacy and prints the product paths
+  after copying.
+- `sidebars/beads.js` and `sidebars/beads.swift` carry a
+  `CONTRIB / LEGACY — NOT THE PRODUCT` header. They remain in-tree for
+  reference against the generic Custom slot.
+
 ## [0.2.1] - 2026-09-02
 
 Deeper native right-sidebar chrome. The Beads panel matches built-in cmux
