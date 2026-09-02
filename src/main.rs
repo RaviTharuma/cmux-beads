@@ -1,18 +1,23 @@
-//! cmux-beads: a keyboard-first Beads (`bd`) board for the cmux right sidebar.
+//! cmux-beads: native Beads sidebar for cmux, plus a keyboard-only PTY fallback.
 //!
-//! Designed to run in the cmux sidebar PTY (`CMUX_SIDEBAR=1`). The board
-//! never invents a store; `bd list --json` / `bd ready --json` is the source
-//! of truth, and every write is an argv vector.
+//! Product path: install `sidebars/beads.js`, `cmux right-sidebar set custom beads`,
+//! and `cmux-beads watch` to project `bd` issues into `bead:<id>` status pills.
+//! The PTY TUI remains for `cmux sidebar plugin install` (no mouse).
 
 mod app;
 mod bd;
 mod board;
+mod cli;
 mod cwd;
 mod form;
+mod install;
 mod keys;
+mod project;
 mod sessions;
+mod sync;
 mod ui;
 
+use std::env;
 use std::io;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -20,6 +25,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use app::App;
+use cli::Command;
 use crossterm::event::{self, Event};
 use crossterm::execute;
 use crossterm::terminal::{
@@ -27,79 +33,163 @@ use crossterm::terminal::{
 };
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
+use sync::{ProcessCmux, SyncOpts};
 
 const POLL_EVERY: Duration = Duration::from_millis(100);
 
-struct Cli {
-    cwd: Option<PathBuf>,
-    selftest: bool,
-}
-
-fn parse_args() -> Result<Cli, i32> {
-    let mut cwd = None;
-    let mut selftest = false;
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--selftest" => selftest = true,
-            "--cwd" => {
-                let Some(value) = args.next() else {
-                    eprintln!("--cwd needs a path");
-                    return Err(2);
-                };
-                cwd = Some(PathBuf::from(value));
-            }
-            "-h" | "--help" => {
-                print_help();
-                return Err(0);
-            }
-            other => {
-                eprintln!("unknown argument: {other}");
-                print_help();
-                return Err(2);
-            }
-        }
-    }
-    Ok(Cli { cwd, selftest })
-}
-
-fn print_help() {
-    eprintln!(
-        "\
-cmux-beads — Beads (bd) board for the cmux right sidebar
-
-Usage:
-  cmux-beads [--cwd DIR] [--selftest]
-
-  --cwd DIR     Run bd in DIR instead of the focused pane cwd
-  --selftest    Print the board as text and exit (no TUI)
-
-Environment:
-  CMUX_TUI_SOCKET / CMUX_MUX_SOCKET   cmux control socket
-  CMUX_SIDEBAR=1                      set by cmux when hosted in the sidebar
-"
-    );
-}
-
 fn main() -> ExitCode {
-    match parse_args() {
-        Ok(cli) => {
-            if cli.selftest {
-                let app = App::new(cli.cwd);
-                print!("{}", app.selftest_text());
-                return ExitCode::SUCCESS;
+    // The plugin manager hosts this binary in a PTY. That path is keyboard-only
+    // and must not be mistaken for the native custom sidebar.
+    if cli::hosted_in_pty_sidebar() {
+        return match dispatch(Command::Tui {
+            cwd: None,
+            selftest: false,
+        }) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(err) => {
+                eprintln!("cmux-beads: {err:#}");
+                ExitCode::from(1)
             }
-            match run_tui(cli.cwd) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(err) => {
-                    eprintln!("cmux-beads: {err:#}");
-                    ExitCode::from(1)
-                }
-            }
+        };
+    }
+    match cli::parse_args(env::args().skip(1)) {
+        Ok(Command::Help) => {
+            cli::print_help();
+            ExitCode::SUCCESS
         }
+        Ok(command) => match dispatch(command) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(err) => {
+                eprintln!("cmux-beads: {err:#}");
+                ExitCode::from(1)
+            }
+        },
         Err(0) => ExitCode::SUCCESS,
         Err(code) => ExitCode::from(code as u8),
     }
+}
+
+fn dispatch(command: Command) -> Result<()> {
+    match command {
+        Command::Help => {
+            cli::print_help();
+            Ok(())
+        }
+        Command::Tui { cwd, selftest } => {
+            if selftest {
+                let app = App::new(cwd);
+                print!("{}", app.selftest_text());
+                return Ok(());
+            }
+            run_tui(cwd)
+        }
+        Command::Sync(opts) => run_sync(opts),
+        Command::Watch(opts) => {
+            let cwd = resolve_cwd(opts.cwd.clone());
+            eprintln!(
+                "cmux-beads watch: interval {}s (Ctrl-C to stop)",
+                opts.interval.as_secs()
+            );
+            sync::watch_loop(&ProcessCmux, &opts, &cwd)
+        }
+        Command::Status(opts) => run_sync(opts),
+        Command::Clear {
+            workspace,
+            dry_run,
+            json,
+        } => {
+            let report = sync::clear_once(&ProcessCmux, workspace.as_deref(), dry_run)?;
+            print_report(&report, json);
+            Ok(())
+        }
+        Command::Install => run_install(),
+        Command::Update {
+            id,
+            status,
+            claim,
+            cwd,
+            workspace,
+        } => run_update(id, status, claim, cwd, workspace),
+    }
+}
+
+fn run_sync(opts: SyncOpts) -> Result<()> {
+    let cwd = resolve_cwd(opts.cwd.clone());
+    let report = sync::sync_once(&ProcessCmux, &opts, &cwd)?;
+    print_report(&report, opts.json);
+    Ok(())
+}
+
+fn print_report(report: &sync::SyncReport, json: bool) {
+    if json {
+        match serde_json::to_string(report) {
+            Ok(raw) => println!("{raw}"),
+            Err(err) => eprintln!("cmux-beads: json encode failed: {err}"),
+        }
+        return;
+    }
+    println!("{}", report.summary);
+}
+
+fn run_install() -> Result<()> {
+    let source = install::source_dir().ok_or_else(|| {
+        anyhow::anyhow!(
+            "could not find sidebars/beads.js (set CMUX_BEADS_SHARE or run from the repo)"
+        )
+    })?;
+    let dest = install::dest_dir();
+    let written = install::install_sidebars(&source, &dest)?;
+    println!("cmux-beads install");
+    for path in written {
+        println!("  sidebar: {}", path.display());
+    }
+    println!();
+    println!("Next steps:");
+    println!("  cmux right-sidebar set custom beads");
+    println!("  cmux-beads watch");
+    println!();
+    println!("Keyboard-only fallback: cmux sidebar plugin use cmux-beads");
+    Ok(())
+}
+
+fn run_update(
+    id: String,
+    status: Option<String>,
+    claim: bool,
+    cwd: Option<PathBuf>,
+    workspace: Option<String>,
+) -> Result<()> {
+    let cwd = resolve_cwd(cwd);
+    if claim {
+        bd::claim(&cwd, bd::Scope::Repo, &id).map_err(|err| anyhow::anyhow!("{err}"))?;
+        eprintln!("cmux-beads update: claimed {id}");
+    }
+    if let Some(status) = status {
+        bd::set_status(&cwd, bd::Scope::Repo, &id, &status)
+            .map_err(|err| anyhow::anyhow!("{err}"))?;
+        eprintln!("cmux-beads update: {id} → {status}");
+    }
+    let opts = SyncOpts {
+        workspace,
+        ..SyncOpts::default()
+    };
+    if let Ok(report) = sync::sync_once(&ProcessCmux, &opts, &cwd) {
+        println!("{}", report.summary);
+    }
+    Ok(())
+}
+
+fn resolve_cwd(forced: Option<PathBuf>) -> PathBuf {
+    if let Some(path) = forced {
+        return path;
+    }
+    if let Some(socket) = cwd::socket_from_env()
+        && let Ok(mut client) = cwd::connect(socket)
+        && let Ok(path) = cwd::resolve_focused_cwd(&mut client)
+    {
+        return path;
+    }
+    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
 fn run_tui(cwd: Option<PathBuf>) -> Result<()> {
@@ -174,6 +264,10 @@ mod tests {
             "plugin name must be cmux-beads"
         );
         assert!(
+            raw.contains("version = \"0.2.0\""),
+            "plugin version must be 0.2.0"
+        );
+        assert!(
             raw.contains("target/release/cmux-beads"),
             "run.command must point at the release binary"
         );
@@ -201,5 +295,62 @@ mod tests {
             code.contains("Event::Resize"),
             "sidebar PTYs observe SIGWINCH as a normal resize"
         );
+    }
+
+    #[test]
+    fn native_js_sidebar_is_the_product() {
+        let js = include_str!("../sidebars/beads.js");
+        assert!(js.contains("sidebar("));
+        assert!(js.contains("Beads"));
+        assert!(js.contains("official GUI"));
+        assert!(js.contains("not an iframe"));
+        assert!(js.contains("Reorderable"));
+        assert!(js.contains("workspace.reorder"));
+        assert!(js.contains("workspace.select"));
+        assert!(js.contains("surface.focus"));
+        assert!(js.contains("bead:"));
+        assert!(js.contains("\"accent\""));
+        assert!(js.contains("\"primary\""));
+        assert!(js.contains("\"secondary\""));
+        assert!(js.contains("\"tertiary\""));
+        assert!(!js.contains("spawn"));
+        assert!(!js.contains("require("));
+        assert!(!js.contains("fetch("));
+        assert!(!js.to_ascii_lowercase().contains("bd list"));
+        assert!(!js.contains("Ravi"));
+        assert!(!js.contains("/Users/"));
+        assert!(!js.contains("@"));
+        assert!(!js.contains("Ship onboarding"));
+        assert!(!js.contains("Fix login timeout"));
+    }
+
+    #[test]
+    fn native_swift_sidebar_matches_herdr_shape() {
+        let swift = include_str!("../sidebars/beads.swift");
+        assert!(swift.contains("Text(\"Beads\")"));
+        assert!(swift.contains("Reorderable(workspaces.prefix(40), move: \"workspace.reorder\")"));
+        assert!(swift.contains("workspace.select"));
+        assert!(swift.contains("surface.focus"));
+        assert!(swift.contains("bead:"));
+        assert!(swift.contains("\"accent\""));
+        assert!(!swift.contains("Ravi"));
+        assert!(!swift.contains("/Users/"));
+        assert!(!swift.contains("Ship onboarding"));
+    }
+
+    #[test]
+    fn changelog_and_crate_are_0_2_0() {
+        assert!(include_str!("../CHANGELOG.md").contains("## [0.2.0]"));
+        assert!(include_str!("../Cargo.toml").contains("version = \"0.2.0\""));
+    }
+
+    #[test]
+    fn readme_has_no_invented_sidebar_shots() {
+        let readme = include_str!("../README.md");
+        assert!(!readme.contains(".png"));
+        assert!(readme.contains("official"));
+        assert!(readme.contains("not an iframe"));
+        assert!(readme.contains("cmux right-sidebar set custom beads"));
+        assert!(readme.contains("cmux-beads watch"));
     }
 }
