@@ -10,17 +10,10 @@ Requires **`bd` v0.60+** on `PATH` (`list --json`, `ready --json`, `show --json`
 
 ## Install
 
-Plugin installation needs a cmux build that ships sidebar plugins. After you publish this repository:
+Plugin installation needs a cmux build that ships sidebar plugins.
 
 ```sh
-cmux sidebar plugin install <git-url>
-cmux sidebar plugin use cmux-beads
-```
-
-`<git-url>` is this repo once it exists on GitHub (or any git remote). Example once published:
-
-```sh
-cmux sidebar plugin install https://github.com/<you>/cmux-beads
+cmux sidebar plugin install https://github.com/RaviTharuma/cmux-beads.git
 cmux sidebar plugin use cmux-beads
 ```
 
@@ -157,7 +150,7 @@ CI cannot talk to a live cmux socket. Unit tests cover:
 
 ### Manual smoke
 
-1. `cmux sidebar plugin install <git-url>` then `cmux sidebar plugin use cmux-beads`.
+1. `cmux sidebar plugin install https://github.com/RaviTharuma/cmux-beads.git` then `cmux sidebar plugin use cmux-beads`.
 2. In a repo with beads:
 
    ```sh
