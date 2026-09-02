@@ -90,7 +90,7 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
             match run_tui(cli.cwd) {
-                Ok(()) => ExitCode::SUCCESS;
+                Ok(()) => ExitCode::SUCCESS,
                 Err(err) => {
                     eprintln!("cmux-beads: {err:#}");
                     ExitCode::from(1)
