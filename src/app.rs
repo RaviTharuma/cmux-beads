@@ -13,7 +13,7 @@ use crate::board::{
 };
 use crate::cwd;
 use crate::form::BeadForm;
-use crate::sessions::{self, LivePane};
+use crate::sessions::{self, LivePane, LiveWorkspace};
 
 const REFRESH_EVERY: Duration = Duration::from_secs(2);
 const INITIAL_RECONNECT_DELAY: Duration = Duration::from_millis(500);
@@ -63,6 +63,7 @@ pub struct App {
     pub include_closed: bool,
     pub show_detail_pane: bool,
     pub move_mode: bool,
+    pub live_workspaces: Vec<LiveWorkspace>,
     pub live_panes: Vec<LivePane>,
     pub assign_index: usize,
     pub status_msg: String,
@@ -99,6 +100,7 @@ impl App {
             include_closed: false,
             show_detail_pane: false,
             move_mode: false,
+            live_workspaces: Vec::new(),
             live_panes: Vec::new(),
             assign_index: 0,
             status_msg: String::new(),
@@ -144,6 +146,20 @@ impl App {
     pub fn selected_bead(&self) -> Option<&Bead> {
         let id = self.selected.as_deref()?;
         self.beads.iter().find(|bead| bead.id == id)
+    }
+
+    /// Compact live-tree summary from `CMUX_TUI_SOCKET` (`list-workspaces`).
+    /// Empty when the plugin is standalone or the socket has no tree yet.
+    #[must_use]
+    pub fn live_summary(&self) -> String {
+        if self.live_workspaces.is_empty() && self.live_panes.is_empty() {
+            return String::new();
+        }
+        format!(
+            "{}ws {}pn",
+            self.live_workspaces.len(),
+            self.live_panes.len()
+        )
     }
 
     /// Status choices for the `s` picker.
@@ -273,20 +289,26 @@ impl App {
         }
     }
 
+    fn apply_live_tree(&mut self, tree: &cmux_client::Tree) {
+        self.live_workspaces = sessions::flatten_live_workspaces(tree);
+        self.live_panes = sessions::flatten_live_panes(tree);
+    }
+
     fn refresh_panes(&mut self) {
-        let panes = match self.client.as_mut() {
-            Some(client) => match client.list_workspaces() {
-                Ok(tree) => sessions::flatten_live_panes(&tree),
-                Err(_) => return,
-            },
-            None => return,
+        let Some(client) = self.client.as_mut() else {
+            return;
         };
-        self.live_panes = panes;
+        match client.list_workspaces() {
+            Ok(tree) => self.apply_live_tree(&tree),
+            Err(err) => {
+                self.disconnect_with_backoff(format!("cmux socket dropped: {err}"));
+            }
+        }
     }
 
     fn refresh_panes_from(&mut self, client: &mut CmuxClient) {
         if let Ok(tree) = client.list_workspaces() {
-            self.live_panes = sessions::flatten_live_panes(&tree);
+            self.apply_live_tree(&tree);
         }
     }
 
@@ -920,6 +942,16 @@ impl App {
         if self.beads.is_empty() {
             out.push_str("(empty)\n");
         }
+        if !self.live_workspaces.is_empty() {
+            out.push_str("\nlive workspaces\n");
+            for workspace in &self.live_workspaces {
+                let flag = if workspace.active { "*" } else { " " };
+                out.push_str(&format!(
+                    "{flag} #{} {} ({} panes)\n",
+                    workspace.id, workspace.name, workspace.pane_count
+                ));
+            }
+        }
         if !self.live_panes.is_empty() {
             out.push_str("\nlive panes\n");
             for pane in &self.live_panes {
@@ -1019,5 +1051,31 @@ mod tests {
         assert_eq!(app.view, BoardView::Kanban);
         app.cycle_view(true);
         assert_eq!(app.view, BoardView::Table);
+    }
+
+    #[test]
+    fn live_summary_is_empty_until_the_socket_tree_arrives() {
+        let mut app = seeded();
+        assert!(app.live_summary().is_empty());
+        app.live_workspaces = vec![crate::sessions::LiveWorkspace {
+            id: 1,
+            name: "alpha".into(),
+            active: true,
+            pane_count: 2,
+        }];
+        app.live_panes = vec![crate::sessions::LivePane {
+            workspace_id: 1,
+            workspace_name: "alpha".into(),
+            screen_id: 10,
+            screen_name: "editor".into(),
+            pane_id: 12,
+            pane_title: "agent".into(),
+            active: true,
+        }];
+        assert_eq!(app.live_summary(), "1ws 1pn");
+        let text = app.selftest_text();
+        assert!(text.contains("live workspaces"));
+        assert!(text.contains("#1 alpha"));
+        assert!(text.contains("cmux:1/12"));
     }
 }

@@ -12,6 +12,15 @@ use cmux_client::{Pane, Tree};
 /// Prefix written into the `bd` assignee field.
 pub const ASSIGNEE_PREFIX: &str = "cmux:";
 
+/// One live workspace from `list-workspaces` on `CMUX_TUI_SOCKET`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiveWorkspace {
+    pub id: u64,
+    pub name: String,
+    pub active: bool,
+    pub pane_count: usize,
+}
+
 /// One live pane the user can assign a bead to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LivePane {
@@ -53,6 +62,25 @@ pub fn parse_assignee(raw: &str) -> Option<(u64, u64)> {
     let rest = raw.strip_prefix(ASSIGNEE_PREFIX)?;
     let (workspace, pane) = rest.split_once('/')?;
     Some((workspace.parse().ok()?, pane.parse().ok()?))
+}
+
+/// Flatten the cmux session tree into workspaces. Names and ids come from
+/// the live socket; this never invents a workspace that is not in `tree`.
+#[must_use]
+pub fn flatten_live_workspaces(tree: &Tree) -> Vec<LiveWorkspace> {
+    tree.workspaces
+        .iter()
+        .map(|workspace| LiveWorkspace {
+            id: workspace.id,
+            name: workspace.name.clone(),
+            active: workspace.active,
+            pane_count: workspace
+                .screens
+                .iter()
+                .map(|screen| screen.panes.len())
+                .sum(),
+        })
+        .collect()
 }
 
 /// Flatten the cmux session tree into assignable panes.
@@ -161,5 +189,21 @@ mod tests {
         assert!(panes[0].active);
         let resolved = resolve_assignee("cmux:1/12", &panes).unwrap();
         assert_eq!(resolved.pane_id, 12);
+    }
+
+    #[test]
+    fn flatten_live_workspaces_comes_from_the_socket_tree() {
+        let workspaces = flatten_live_workspaces(&sample_tree());
+        assert_eq!(workspaces.len(), 1);
+        assert_eq!(workspaces[0].id, 1);
+        assert_eq!(workspaces[0].name, "alpha");
+        assert!(workspaces[0].active);
+        assert_eq!(workspaces[0].pane_count, 1);
+        assert!(
+            flatten_live_workspaces(&Tree {
+                workspaces: Vec::new()
+            })
+            .is_empty()
+        );
     }
 }

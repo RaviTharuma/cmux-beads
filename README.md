@@ -1,122 +1,73 @@
 # cmux-beads
 
-A [Beads](https://github.com/steveyegge/beads) (`bd`) board for the [cmux](https://github.com/manaflow-ai/cmux) right sidebar.
+![cmux-beads in the cmux right sidebar: List view of lab issues next to a pane](docs/hero.png)
 
-`bd` is where the work lives. This plugin is the window onto it. Cards are `bd` issues, columns are `bd` statuses, and every write is a `bd` argv call. The board never invents its own store.
-
-The herdr 0.7 analog is the **cmux plugin manager**: `cmux sidebar plugin install` / `use` / uninstall, not `herdr plugin install`.
-
-Requires **`bd` v0.60+** on `PATH` (`list --json`, `ready --json`, `show --json`, `update --claim`, `note`, `comment`).
-
-## Install
-
-Plugin installation needs a cmux build that ships sidebar plugins.
+[![Release](https://img.shields.io/github/v/release/RaviTharuma/cmux-beads)](https://github.com/RaviTharuma/cmux-beads/releases/latest)
 
 ```sh
 cmux sidebar plugin install https://github.com/RaviTharuma/cmux-beads.git
 cmux sidebar plugin use cmux-beads
+cmux sidebar plugin update cmux-beads
 ```
 
-Install clones to `~/.local/share/cmux/mux-plugins/cmux-beads` (or `$XDG_DATA_HOME/cmux/mux-plugins/cmux-beads`), runs `cargo build --release`, and records the binary in the cmux-tui config.
+A [Beads](https://github.com/steveyegge/beads) (`bd`) board for the [cmux](https://github.com/manaflow-ai/cmux) right sidebar. Cards are `bd` issues, columns are `bd` statuses, and every write is a `bd` argv call. The board never invents its own store.
 
-A Rust toolchain (1.88+) is required on install because the plugin builds from source.
+Requires **`bd` v0.60+** on `PATH`.
 
-Then focus the sidebar with **prefix-S** (cmux default). The plugin runs in the sidebar PTY (`CMUX_SIDEBAR=1`).
+## Sidebar plugin contract
 
-### Uninstall
+A cmux sidebar plugin is an ordinary TUI. cmux runs it inside a PTY sized to the sidebar and renders that PTY with the same Ghostty VT pipeline as pane surfaces. `TERM` is the host TERM; this plugin uses named ANSI colors and reverse/dim so Ghostty themes the cells. It does not ship a private RGB palette.
 
-```sh
-cmux sidebar plugin uninstall cmux-beads
-```
+cmux exposes the session control socket as `CMUX_TUI_SOCKET` (legacy `CMUX_MUX_SOCKET`). Live workspaces, screens, and panes come from `list-workspaces` on that socket. `process-info` on the focused pane's active tab supplies `cwd` for `bd`.
 
-If your cmux build uses a different verb, remove `~/.local/share/cmux/mux-plugins/cmux-beads` and drop `sidebar.plugin` from `~/.config/cmux/cmux-tui.json`.
+Mouse input is not forwarded to sidebar plugins. There is no drag-and-drop. Kanban moves are keys (`v` then `h`/`l`). `Esc` never quits; cmux owns the prefix chord (`prefix-S` focuses the sidebar).
 
-## What you see
+See [manaflow-ai/cmux-sidebar-fzf](https://github.com/manaflow-ai/cmux-sidebar-fzf) for the reference plugin this follows.
 
-The sidebar lists issues for the **focused pane's working directory**.
+## Views
 
-1. Socket path from `CMUX_TUI_SOCKET` (legacy `CMUX_MUX_SOCKET`), same contract as [cmux-sidebar-fzf](https://github.com/manaflow-ai/cmux-sidebar-fzf).
-2. `list-workspaces` to find the active pane and every live workspace/screen/pane.
-3. `process-info` on the focused pane's active tab surface for `cwd`.
-4. `bd` is spawned with that `cwd` and an argv vector — never a shell string.
+Three views, one keystroke apart (`K` / `Tab`):
 
-Three views, one keystroke apart (`K` / `Tab`), switched in-process:
+| List | Table | Kanban |
+| --- | --- | --- |
+| ![List](docs/list.png) | ![Table](docs/table.png) | ![Kanban](docs/kanban.png) |
 
-- **List** — grouped by status.
-- **Table** — flat columns; `o` cycles sort (status, priority, changed).
-- **Kanban** — one column per `bd` status. Narrow sidebars show one column at a time (`h`/`l` to change). `v` then `h`/`l` writes `bd update -s`.
+Narrow sidebars show one kanban column at a time (`h`/`l`).
 
-If `bd` is missing, the sidebar shows an install hint and stays up. The mux does not crash.
+## Assign to a live pane
 
-## Assign to a live cmux pane
-
-`bd` has no first-class chat or pane id. Assignment is stored **on the issue**:
-
-| Field | Value |
-| --- | --- |
-| `bd` assignee | `cmux:{workspace_id}/{pane_id}` |
-
-Example: pane 12 in workspace 1 becomes assignee `cmux:1/12`.
-
-Press **`A`** to pick a running workspace/screen/pane from the live cmux tree (`list-workspaces`). The picker shows names; the write stores the id form so a rename does not lose the link. The header marks assigned beads with `*`. Detail resolves the id back to `workspace > screen > pane` while that session is still live.
-
-No second database. If you need a human name as well, put it in a note.
+`bd` has no pane id. Assignment is stored on the issue as `cmux:{workspace_id}/{pane_id}` from the live tree. Press `A` to pick a running workspace/screen/pane. The header marks assigned beads with `*`.
 
 ## Keys
-
-Mouse is not forwarded to sidebar plugins. Everything is a key.
 
 | Key | Action |
 | --- | --- |
 | `K` / `Tab` | cycle List / Table / Kanban |
-| `Shift+Tab` | cycle view backwards |
 | `j` `k` / arrows | move selection |
 | `h` `l` | kanban: change column |
-| `v` | move mode: `h`/`l` retags status via `bd` |
-| `gg` / `G` | first / last |
-| `Enter` | detail modal (`bd show --json`) |
-| `d` | toggle inline detail pane |
+| `v` | move mode: `h`/`l` writes `bd update -s` |
+| `Enter` | detail (`bd show --json`) |
 | `c` | claim (`bd update --claim`) |
 | `x` | close (`bd close -r`, reason required) |
-| `s` then `1`-`9` | set status (`bd update -s`) |
-| `p` then `0`-`4` | set priority (`bd update -p`) |
-| `a` | create (`bd create`) |
-| `e` | edit title/description/type/priority/labels/parent/assignee |
-| `n` | note (`bd note`) |
-| `m` | comment (`bd comment`) |
-| `A` | assign to a live cmux pane (`bd update -a`) |
+| `a` / `e` | create / edit |
+| `A` | assign to a live cmux pane |
 | `/` | filter. `Esc` clears |
-| `R` | toggle ready (`bd ready --json`) |
-| `C` | show or hide closed |
-| `S` | scope: repo ↔ `bd --global` |
-| `o` | table: cycle sort |
 | `r` | refresh from `bd` |
 | `?` | help |
 | `q` / `Ctrl-C` | quit |
-| `Esc` | back out a layer — **never quits** |
-
-Create / edit form: `Tab` moves fields, `←` `→` cycle type / priority / parent epic, `Space` toggles start-in-backlog, `Enter` writes.
-
-cmux's prefix chord leaves the sidebar. `Esc` is not the host escape hatch.
+| `Esc` | back out a layer — never quits |
 
 ## Standalone development
 
 ```sh
-# Against a live cmux session
 CMUX_TUI_SOCKET=/path/to/cmux-tui.sock cargo run
-
-# Against a fixture repo, no socket
 cargo run -- --cwd /path/to/a/repo/with/.beads
-
-# Headless dump of the same board the TUI would draw
 cargo run -- --selftest --cwd /path/to/a/repo/with/.beads
 ```
 
 Without a socket the plugin uses the process working directory and labels itself `solo`. Assign-to-pane needs a live socket.
 
 ## Manifest
-
-`cmux-plugin.toml` follows the published sidebar contract:
 
 ```toml
 [plugin]
@@ -132,6 +83,8 @@ command = ["target/release/cmux-beads"]
 command = ["cargo", "build", "--release"]
 ```
 
+Install clones to `~/.local/share/cmux/mux-plugins/cmux-beads` (or `$XDG_DATA_HOME/cmux/mux-plugins/cmux-beads`), runs `cargo build --release`, and records the binary in the cmux-tui config.
+
 ## Test
 
 ```sh
@@ -141,48 +94,6 @@ cargo test
 cargo build --release
 ```
 
-CI cannot talk to a live cmux socket. Unit tests cover:
-
-- `bd list --json` / `bd ready --json` / `bd show --json` parsers (including notes)
-- argv builders (user text stays one argument), including note/comment/assignee
-- filter, kanban columns, view cycling, live-pane assignee mapping
-- the plugin manifest (`kind = sidebar`, name `cmux-beads`)
-
-### Manual smoke
-
-1. `cmux sidebar plugin install https://github.com/RaviTharuma/cmux-beads.git` then `cmux sidebar plugin use cmux-beads`.
-2. In a repo with beads:
-
-   ```sh
-   bd init
-   bd create "Smoke test from cmux sidebar" -p 2
-   bd list --json
-   ```
-
-3. Open that repo in a cmux pane. Press **prefix-S**.
-4. The sidebar should list the same ids/titles/statuses/priorities as `bd list --json`.
-5. `K` switches List → Table → Kanban. `c` claims, `x` closes (reason required), `A` assigns to a live pane, `r` refreshes. Confirm with another `bd list --json` in the pane.
-
-## How it works
-
-| Board | `bd` |
-| --- | --- |
-| List / Table / Kanban | `bd list --json` |
-| Ready filter | `bd ready --json` |
-| Detail | `bd show <id> --json` |
-| Claim | `bd update <id> --claim` |
-| Close | `bd close <id> -r <reason>` |
-| Status / kanban move | `bd update <id> -s <status>` |
-| Priority | `bd update <id> -p <n>` |
-| Note | `bd note <id> <text>` |
-| Comment | `bd comment <id> <text>` |
-| Create | `bd create <title> -t … -p … [--description] [-a] [--parent] [-l]` |
-| Edit | `bd update <id> --title … -t … -p …` |
-| Assign to pane | `bd update <id> -a cmux:{workspace_id}/{pane_id}` |
-| Global scope | `bd --global …` |
-
-Writes are local. Syncing (`bd dolt push`) stays your deliberate step.
-
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). See [CHANGELOG](CHANGELOG.md).

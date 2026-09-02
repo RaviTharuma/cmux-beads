@@ -1,4 +1,8 @@
 //! Ratatui views for the cmux sidebar PTY.
+//!
+//! Colors are named ANSI (or Reset) so Ghostty / cmux themes them through
+//! the same TERM palette as pane PTYs. Do not invent an RGB or 256-color
+//! private palette — the host already owns those cells.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -13,16 +17,27 @@ use crate::form::{F_ASSIGNEE, F_BACKLOG, F_DESC, F_EPIC, F_LABELS, F_PRIORITY, F
 use crate::keys;
 use crate::sessions;
 
-const ACCENT: Color = Color::Rgb(137, 180, 250);
-const MUTED: Color = Color::Rgb(108, 112, 134);
-const TEXT: Color = Color::Rgb(205, 214, 244);
-const WARN: Color = Color::Rgb(249, 226, 175);
-const ERR: Color = Color::Rgb(243, 139, 168);
-const OK: Color = Color::Rgb(166, 227, 161);
+/// Host-themed accent (cmux rails use Cyan on the same TERM).
+const ACCENT: Color = Color::Cyan;
+const MUTED: Color = Color::DarkGray;
+const WARN: Color = Color::Yellow;
+const ERR: Color = Color::Red;
+const OK: Color = Color::Green;
+
+/// Default text: inherit the Ghostty / cmux TERM foreground.
+fn text() -> Style {
+    Style::new()
+}
+
+fn dim() -> Style {
+    Style::new().fg(MUTED)
+}
 
 /// Draw the current overlay + board into the sidebar frame.
 pub fn draw(frame: &mut Frame<'_>, app: &App) {
     let area = frame.area();
+    // Clear with Reset so leftover cells keep the host TERM background.
+    frame.render_widget(Clear, area);
     if matches!(app.health, Health::BdMissing) {
         draw_missing_bd(frame, area, app);
         return;
@@ -96,13 +111,11 @@ fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
                 app.scope.label(),
                 mode
             ),
-            Style::default().fg(MUTED),
+            dim(),
         ),
+        Span::styled(format!(" {}", app.live_summary()), dim()),
     ]);
-    let cwd_line = Line::from(Span::styled(
-        format!("{} {cwd}", app.cwd_source),
-        Style::default().fg(MUTED),
-    ));
+    let cwd_line = Line::from(Span::styled(format!("{} {cwd}", app.cwd_source), dim()));
     frame.render_widget(Paragraph::new(vec![line, cwd_line]), area);
 }
 
@@ -137,7 +150,7 @@ fn draw_table(frame: &mut Frame<'_>, area: Rect, app: &App) {
     }
     let mut items = vec![ListItem::new(Line::from(Span::styled(
         format!(" P  {:<10} {:<10} title", "id", "status"),
-        Style::default().fg(MUTED),
+        dim(),
     )))];
     for bead in &rows {
         items.push(bead_row(app, bead, area.width));
@@ -238,10 +251,12 @@ fn draw_kanban_column(
 fn bead_row(app: &App, bead: &crate::bd::Bead, width: u16) -> ListItem<'static> {
     let selected = app.selected.as_deref() == Some(bead.id.as_str());
     let marker = if selected { "▸" } else { " " };
-    let style = if selected {
-        Style::default().fg(TEXT).bg(Color::Rgb(49, 50, 68))
+    // Reverse video uses the host TERM selection colors. Do not paint a
+    // private RGB background — Ghostty already owns that cell.
+    let base = if selected {
+        Style::new().add_modifier(Modifier::REVERSED)
     } else {
-        Style::default().fg(TEXT)
+        text()
     };
     let assigned = sessions::parse_assignee(bead.assignee_display()).is_some();
     let flag = if assigned { "*" } else { " " };
@@ -250,13 +265,10 @@ fn bead_row(app: &App, bead: &crate::bd::Bead, width: u16) -> ListItem<'static> 
         width.saturating_sub(bead.id.len() as u16 + 8) as usize,
     );
     ListItem::new(Line::from(vec![
-        Span::styled(
-            format!("{marker}P{}", bead.priority),
-            Style::default().fg(WARN),
-        ),
-        Span::styled(format!(" {}", bead.id), Style::default().fg(ACCENT)),
-        Span::styled(flag.to_string(), Style::default().fg(OK)),
-        Span::styled(format!(" {title}"), style),
+        Span::styled(format!("{marker}P{}", bead.priority), base.fg(WARN)),
+        Span::styled(format!(" {}", bead.id), base.fg(ACCENT)),
+        Span::styled(flag.to_string(), base.fg(OK)),
+        Span::styled(format!(" {title}"), base),
     ]))
 }
 
@@ -269,9 +281,7 @@ fn draw_empty(frame: &mut Frame<'_>, area: Rect, app: &App) {
         "no issues. a create · r refresh"
     };
     frame.render_widget(
-        Paragraph::new(msg)
-            .style(Style::default().fg(MUTED))
-            .wrap(Wrap { trim: true }),
+        Paragraph::new(msg).style(dim()).wrap(Wrap { trim: true }),
         area,
     );
 }
@@ -288,7 +298,7 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let style = if app.status_msg.contains("failed") || app.status_msg.contains("not on PATH") {
         Style::default().fg(ERR)
     } else {
-        Style::default().fg(MUTED)
+        dim()
     };
     frame.render_widget(
         Paragraph::new(msg).style(style).wrap(Wrap { trim: true }),
@@ -341,7 +351,7 @@ fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         .map(|(key, action)| {
             Line::from(vec![
                 Span::styled(format!("{key:<16}"), Style::default().fg(ACCENT)),
-                Span::styled(action, Style::default().fg(TEXT)),
+                Span::styled(action, text()),
             ])
         })
         .collect();
@@ -360,10 +370,7 @@ fn draw_help(frame: &mut Frame<'_>, area: Rect) {
 
 fn detail_lines(app: &App) -> Vec<Line<'static>> {
     let Some(bead) = app.detail.as_ref().or(app.selected_bead()) else {
-        return vec![Line::from(Span::styled(
-            "nothing selected",
-            Style::default().fg(MUTED),
-        ))];
+        return vec![Line::from(Span::styled("nothing selected", dim()))];
     };
     let mut lines = vec![
         Line::from(Span::styled(
@@ -401,10 +408,7 @@ fn detail_lines(app: &App) -> Vec<Line<'static>> {
     }
     lines.push(Line::from(""));
     if bead.description.is_empty() {
-        lines.push(Line::from(Span::styled(
-            "(no description)",
-            Style::default().fg(MUTED),
-        )));
+        lines.push(Line::from(Span::styled("(no description)", dim())));
     } else {
         for paragraph in bead.description.lines() {
             lines.push(Line::from(paragraph.to_string()));
@@ -445,10 +449,7 @@ fn draw_detail_modal(frame: &mut Frame<'_>, area: Rect, app: &App) {
     frame.render_widget(Clear, popup);
     let mut lines = detail_lines(app);
     lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(
-        "Esc back",
-        Style::default().fg(MUTED),
-    )));
+    lines.push(Line::from(Span::styled("Esc back", dim())));
     frame.render_widget(
         Paragraph::new(lines)
             .block(
@@ -469,7 +470,7 @@ fn draw_detail_inline(frame: &mut Frame<'_>, area: Rect, app: &App) {
                 Block::default()
                     .title(" detail ")
                     .borders(Borders::TOP)
-                    .border_style(Style::default().fg(MUTED)),
+                    .border_style(dim()),
             )
             .wrap(Wrap { trim: true }),
         area,
@@ -583,12 +584,9 @@ fn draw_form(frame: &mut Frame<'_>, area: Rect, app: &App) {
         Line::from(""),
         Line::from(Span::styled(
             format!("types: {}", ISSUE_TYPES.join(" ")),
-            Style::default().fg(MUTED),
+            dim(),
         )),
-        Line::from(Span::styled(
-            "Tab field · Enter save · Esc cancel",
-            Style::default().fg(MUTED),
-        )),
+        Line::from(Span::styled("Tab field · Enter save · Esc cancel", dim())),
     ];
     frame.render_widget(
         Paragraph::new(lines).block(
@@ -605,8 +603,8 @@ fn draw_assign(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let popup = centered(area, 96, 80);
     frame.render_widget(Clear, popup);
     let mut lines = vec![Line::from(Span::styled(
-        "assignee = cmux:{workspace_id}/{pane_id}",
-        Style::default().fg(MUTED),
+        "assignee = cmux:{workspace_id}/{pane_id}  (live from CMUX_TUI_SOCKET)",
+        dim(),
     ))];
     if app.live_panes.is_empty() {
         lines.push(Line::from("no live panes"));
@@ -626,8 +624,8 @@ fn draw_assign(frame: &mut Frame<'_>, area: Rect, app: &App) {
     }
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "Enter assign · Esc cancel",
-        Style::default().fg(MUTED),
+        "Enter assign · Esc cancel · keys only (no mouse)",
+        dim(),
     )));
     frame.render_widget(
         Paragraph::new(lines).block(
@@ -648,9 +646,16 @@ fn status_color(status: &str) -> Color {
         "deferred" => MUTED,
         "closed" => MUTED,
         "pinned" => WARN,
-        "hooked" => Color::Rgb(203, 166, 247),
-        _ => TEXT,
+        "hooked" => Color::Magenta,
+        _ => Color::Reset,
     }
+}
+
+/// True when `color` is a host-themed ANSI / Reset value, not an invented RGB.
+#[cfg(test)]
+#[must_use]
+fn is_term_color(color: Color) -> bool {
+    !matches!(color, Color::Rgb(_, _, _) | Color::Indexed(_))
 }
 
 fn centered(area: Rect, pct_x: u16, pct_y: u16) -> Rect {
@@ -701,5 +706,45 @@ mod tests {
         assert_eq!(truncate_middle("abc", 8), "abc");
         assert_eq!(truncate_middle("abcdefghij", 7).chars().count(), 7);
         assert!(truncate_middle("abcdefghij", 7).contains('…'));
+    }
+
+    #[test]
+    fn status_colors_are_named_ansi_so_ghostty_themes_them() {
+        for status in [
+            "open",
+            "in_progress",
+            "blocked",
+            "deferred",
+            "closed",
+            "pinned",
+            "hooked",
+            "custom-status",
+        ] {
+            assert!(
+                is_term_color(status_color(status)),
+                "{status} must use Reset or a named ANSI color, not RGB/Indexed"
+            );
+        }
+        assert!(is_term_color(ACCENT));
+        assert!(is_term_color(MUTED));
+        assert!(is_term_color(WARN));
+        assert!(is_term_color(ERR));
+        assert!(is_term_color(OK));
+    }
+
+    #[test]
+    fn source_does_not_invent_an_rgb_or_256_palette() {
+        let code = include_str!("ui.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .expect("ui.rs has a test module");
+        assert!(
+            !code.contains("Rgb("),
+            "sidebar PTY must inherit Ghostty/cmux TERM colors"
+        );
+        assert!(
+            !code.contains("Indexed("),
+            "do not pick 256-color grays the host theme does not own"
+        );
     }
 }

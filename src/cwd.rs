@@ -5,6 +5,7 @@
 //! focused pane's active tab surface.
 
 use std::env;
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 use anyhow::{Result, anyhow};
@@ -21,11 +22,23 @@ pub struct ProcessInfo {
 }
 
 /// Read the cmux socket path from the environment.
+///
+/// Precedence matches the published sidebar contract and `cmux-sidebar-fzf`:
+/// non-empty `CMUX_TUI_SOCKET`, then legacy `CMUX_MUX_SOCKET`. Empty values
+/// are treated as unset. This plugin never invents a socket path.
 #[must_use]
 pub fn socket_from_env() -> Option<PathBuf> {
-    env::var_os("CMUX_TUI_SOCKET")
-        .or_else(|| env::var_os("CMUX_MUX_SOCKET"))
-        .filter(|path| !path.is_empty())
+    socket_from_os(
+        env::var_os("CMUX_TUI_SOCKET"),
+        env::var_os("CMUX_MUX_SOCKET"),
+    )
+}
+
+/// Resolve a socket path from the two documented environment values.
+#[must_use]
+pub fn socket_from_os(tui: Option<OsString>, mux: Option<OsString>) -> Option<PathBuf> {
+    tui.filter(|path| !path.is_empty())
+        .or_else(|| mux.filter(|path| !path.is_empty()))
         .map(PathBuf::from)
 }
 
@@ -139,10 +152,30 @@ mod tests {
     }
 
     #[test]
-    fn socket_from_env_prefers_tui_then_mux() {
-        // Isolation: these tests only check the helper's empty-filter logic
-        // against a synthetic empty value, not the live environment.
-        assert!(PathBuf::from("/tmp/cmux-tui.sock").file_name().is_some());
+    fn socket_from_os_prefers_tui_then_mux_and_rejects_empty() {
+        assert_eq!(
+            socket_from_os(
+                Some(OsString::from("/tmp/cmux-tui.sock")),
+                Some(OsString::from("/tmp/legacy.sock")),
+            ),
+            Some(PathBuf::from("/tmp/cmux-tui.sock"))
+        );
+        assert_eq!(
+            socket_from_os(None, Some(OsString::from("/tmp/legacy.sock"))),
+            Some(PathBuf::from("/tmp/legacy.sock"))
+        );
+        assert_eq!(
+            socket_from_os(
+                Some(OsString::from("")),
+                Some(OsString::from("/tmp/legacy.sock"))
+            ),
+            Some(PathBuf::from("/tmp/legacy.sock"))
+        );
+        assert_eq!(
+            socket_from_os(Some(OsString::from("")), Some(OsString::from(""))),
+            None
+        );
+        assert_eq!(socket_from_os(None, None), None);
     }
 
     #[test]
