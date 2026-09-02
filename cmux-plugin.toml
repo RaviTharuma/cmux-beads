@@ -1,0 +1,11 @@
+[plugin]
+name = "cmux-beads"
+kind = "sidebar"
+version = "0.1.0"
+description = "Beads (bd) board for the cmux right sidebar: list, table, kanban"
+
+[run]
+command = ["target/release/cmux-beads"]
+
+[build]
+command = ["cargo", "build", "--release"]

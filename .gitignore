@@ -1,0 +1,7 @@
+/target
+**/*.rs.bk
+.beads
+.idea
+.vscode
+*.swp
+/agent-tools

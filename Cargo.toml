@@ -1,0 +1,27 @@
+[package]
+name = "cmux-beads"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+description = "Beads (bd) board for the cmux right sidebar: list, table, kanban"
+readme = "README.md"
+keywords = ["cmux", "beads", "bd", "sidebar", "tui"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "cmux-beads"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.100"
+cmux-client = "0.1"
+crossterm = "0.29.0"
+ratatui = "0.30.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = "z"
