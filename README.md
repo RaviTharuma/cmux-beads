@@ -28,12 +28,12 @@ Then keep `cmux-beads watch` running in the repo (or pass `--cwd` / `--workspace
 
 ## What you see
 
-- **Beads** — the board is the product. Projected `bead:<id>` rows, grouped by status.
-- **Host** — live cmux workspaces under the board. Drag to reorder (`workspace.reorder`). Click to select (`workspace.select`).
+- **Beads** — the board is the product. Projected `bead:<id>` cards with a 3pt tinted rail, grouped by status.
+- **Host** — live cmux workspaces under the board. Drag to reorder (`workspace.reorder`). Click to select (`cmux("workspace.select")`). Right-click for Pin / Move.
 - **Surfaces** — tabs on the selected host run `surface.focus`.
-- Theme tokens only in the sidebar file: `accent`, `primary`, `secondary`, `tertiary`.
+- Built-in chrome: glass surface, Ghostty/cmux tokens (`accent` / `primary` / `secondary` / `tertiary`) plus host washes (`#7f7f7f14` / `#7f7f7f24` / `#7f7f7f28` / `#7f7f7f3d`).
 
-The sidebar never invents a team, never hardcodes titles, and never touches the filesystem.
+The sidebar never invents a team, never hardcodes titles, and never touches the filesystem. Product screenshots, if added later, are lab captures of live cmux only.
 
 ## CLI
 
@@ -55,16 +55,7 @@ cmux-beads update lab-2 --status in_progress
 
 `--workspace` or `CMUX_WORKSPACE_ID` selects the host. If both are missing, `cmux identify --json` is used. The CLI will not guess a random workspace.
 
-## Keyboard-only fallback
-
-PTY sidebar plugins do **not** get mouse. Do not expect drag-and-drop there.
-
-```sh
-cmux sidebar plugin install https://github.com/RaviTharuma/cmux-beads.git
-cmux sidebar plugin use cmux-beads
-```
-
-That path is the v0.1 TUI: keys only, Ghostty TERM colors, `prefix-S` to focus. `Esc` never quits.
+PTY `cmux sidebar plugin install` is a keyboard-only fallback (no mouse). It is not the product.
 
 ## Manifest
 
@@ -72,8 +63,8 @@ That path is the v0.1 TUI: keys only, Ghostty TERM colors, `prefix-S` to focus. 
 [plugin]
 name = "cmux-beads"
 kind = "sidebar"
-version = "0.2.0"
-description = "Native Beads sidebar for cmux (watch + custom beads panel); PTY TUI is keyboard-only fallback"
+version = "0.2.1"
+description = "Official Beads GUI in the cmux right sidebar; PTY TUI is keyboard-only fallback"
 
 [run]
 command = ["target/release/cmux-beads"]

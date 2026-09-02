@@ -264,8 +264,8 @@ mod tests {
             "plugin name must be cmux-beads"
         );
         assert!(
-            raw.contains("version = \"0.2.0\""),
-            "plugin version must be 0.2.0"
+            raw.contains("version = \"0.2.1\""),
+            "plugin version must be 0.2.1"
         );
         assert!(
             raw.contains("target/release/cmux-beads"),
@@ -307,8 +307,16 @@ mod tests {
         assert!(js.contains("Reorderable"));
         assert!(js.contains("workspace.reorder"));
         assert!(js.contains("workspace.select"));
+        assert!(js.contains("workspace.action"));
         assert!(js.contains("surface.focus"));
         assert!(js.contains("bead:"));
+        assert!(js.contains("hoverBackground"));
+        assert!(js.contains("line.3.horizontal"));
+        assert!(js.contains("pin.fill"));
+        assert!(js.contains("mark_read"));
+        assert!(js.contains("surface: \"glass\""));
+        assert!(js.contains("#7f7f7f24"));
+        assert!(js.contains("#7f7f7f14"));
         assert!(js.contains("\"accent\""));
         assert!(js.contains("\"primary\""));
         assert!(js.contains("\"secondary\""));
@@ -330,18 +338,21 @@ mod tests {
         assert!(swift.contains("Text(\"Beads\")"));
         assert!(swift.contains("Reorderable(workspaces.prefix(40), move: \"workspace.reorder\")"));
         assert!(swift.contains("workspace.select"));
+        assert!(swift.contains("workspace.action"));
         assert!(swift.contains("surface.focus"));
+        assert!(swift.contains("line.3.horizontal"));
         assert!(swift.contains("bead:"));
         assert!(swift.contains("\"accent\""));
+        assert!(swift.contains("#7f7f7f24"));
         assert!(!swift.contains("Ravi"));
         assert!(!swift.contains("/Users/"));
         assert!(!swift.contains("Ship onboarding"));
     }
 
     #[test]
-    fn changelog_and_crate_are_0_2_0() {
-        assert!(include_str!("../CHANGELOG.md").contains("## [0.2.0]"));
-        assert!(include_str!("../Cargo.toml").contains("version = \"0.2.0\""));
+    fn changelog_and_crate_are_0_2_1() {
+        assert!(include_str!("../CHANGELOG.md").contains("## [0.2.1]"));
+        assert!(include_str!("../Cargo.toml").contains("version = \"0.2.1\""));
     }
 
     #[test]
