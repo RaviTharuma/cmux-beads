@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/github/v/release/RaviTharuma/cmux-beads)](https://github.com/RaviTharuma/cmux-beads/releases/latest)
 
-The official [Beads](https://github.com/steveyegge/beads) GUI inside [cmux](https://github.com/manaflow-ai/cmux). A native right-sidebar panel — not an iframe, not a terminal board stuffed in a pane. Mouse, click, drag-and-drop. People should know it is Beads.
+A **cmux sidebar plugin**: the official [Beads](https://github.com/steveyegge/beads) (`bd` CLI) GUI inside [cmux](https://github.com/manaflow-ai/cmux). Native right-sidebar Kanban — not an iframe, not a terminal board stuffed in a pane. Mouse, click, drag-and-drop. People should know it is Beads.
 
 Custom sidebars cannot spawn `bd`. `cmux-beads watch` projects issues into live `bead:<id>` pills; the sidebar is the Beads board, reading cmux context and running `cmux()` taps.
 
