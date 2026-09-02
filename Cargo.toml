@@ -1,10 +1,10 @@
 [package]
 name = "cmux-beads"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
-description = "Official Beads GUI in the cmux right sidebar: Reorderable native panel plus bd status projection"
+description = "Official Beads tab on the cmux right sidebar: native panel plus bd status projection"
 readme = "README.md"
 keywords = ["cmux", "beads", "bd", "sidebar", "tui"]
 categories = ["command-line-utilities"]

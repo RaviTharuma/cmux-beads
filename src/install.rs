@@ -1,7 +1,10 @@
-//! Install the native sidebar files into `~/.config/cmux/sidebars/`.
+//! Contrib/legacy: copy the interpreted sidebar scenes into
+//! `~/.config/cmux/sidebars/`.
 //!
-//! This is the product path (interpreted custom sidebar). The PTY plugin
-//! manager install remains a keyboard-only fallback.
+//! These scenes drive the generic Custom slot and are **not** the product.
+//! Beads ships as a tab on the existing right sidebar — `cmux right-sidebar
+//! set beads` (built-in) or the official plugin manager (`cmux sidebar plugin
+//! install` / `use`).
 
 use std::env;
 use std::fs;

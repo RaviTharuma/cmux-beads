@@ -1,8 +1,11 @@
-//! cmux-beads: native Beads sidebar for cmux, plus a keyboard-only PTY fallback.
+//! cmux-beads: the official Beads tab on the cmux right sidebar, plus a
+//! keyboard-only PTY fallback.
 //!
-//! Product path: install `sidebars/beads.js`, `cmux right-sidebar set custom beads`,
-//! and `cmux-beads watch` to project `bd` issues into `bead:<id>` status pills.
-//! The PTY TUI remains for `cmux sidebar plugin install` (no mouse).
+//! Beads is a tab on the existing right sidebar (sibling of Files / Find /
+//! Dock), not a Bonsplit pane and not the left workspace list. Product paths:
+//! `cmux right-sidebar set beads` (built-in host tab) or the official plugin
+//! manager (`cmux sidebar plugin install` / `use`). Either way,
+//! `cmux-beads watch` projects `bd` issues into `bead:<id>` status pills.
 
 mod app;
 mod bd;
@@ -139,16 +142,18 @@ fn run_install() -> Result<()> {
     })?;
     let dest = install::dest_dir();
     let written = install::install_sidebars(&source, &dest)?;
-    println!("cmux-beads install");
+    println!("cmux-beads install (contrib/legacy interpreted sidebar)");
     for path in written {
         println!("  sidebar: {}", path.display());
     }
     println!();
-    println!("Next steps:");
-    println!("  cmux right-sidebar set custom beads");
-    println!("  cmux-beads watch");
+    println!("These scenes target the generic Custom slot. They are not the product.");
     println!();
-    println!("Keyboard-only fallback: cmux sidebar plugin use cmux-beads");
+    println!("Product — Beads as a tab on the existing right sidebar:");
+    println!("  cmux right-sidebar set beads");
+    println!("  cmux sidebar plugin install https://github.com/RaviTharuma/cmux-beads.git");
+    println!("  cmux sidebar plugin use cmux-beads");
+    println!("  cmux-beads watch");
     Ok(())
 }
 
@@ -264,8 +269,8 @@ mod tests {
             "plugin name must be cmux-beads"
         );
         assert!(
-            raw.contains("version = \"0.2.1\""),
-            "plugin version must be 0.2.1"
+            raw.contains("version = \"0.2.2\""),
+            "plugin version must be 0.2.2"
         );
         assert!(
             raw.contains("target/release/cmux-beads"),
@@ -298,11 +303,12 @@ mod tests {
     }
 
     #[test]
-    fn native_js_sidebar_is_the_product() {
+    fn legacy_js_scene_is_labeled_not_the_product() {
         let js = include_str!("../sidebars/beads.js");
         assert!(js.contains("sidebar("));
         assert!(js.contains("Beads"));
-        assert!(js.contains("official GUI"));
+        assert!(js.contains("CONTRIB / LEGACY — NOT THE PRODUCT"));
+        assert!(js.contains("cmux right-sidebar set beads"));
         assert!(js.contains("not an iframe"));
         assert!(js.contains("Reorderable"));
         assert!(js.contains("workspace.reorder"));
@@ -333,8 +339,10 @@ mod tests {
     }
 
     #[test]
-    fn native_swift_sidebar_matches_herdr_shape() {
+    fn legacy_swift_scene_is_labeled_not_the_product() {
         let swift = include_str!("../sidebars/beads.swift");
+        assert!(swift.contains("CONTRIB / LEGACY — NOT THE PRODUCT"));
+        assert!(swift.contains("cmux right-sidebar set beads"));
         assert!(swift.contains("Text(\"Beads\")"));
         assert!(swift.contains("Reorderable(workspaces.prefix(40), move: \"workspace.reorder\")"));
         assert!(swift.contains("workspace.select"));
@@ -350,18 +358,37 @@ mod tests {
     }
 
     #[test]
-    fn changelog_and_crate_are_0_2_1() {
-        assert!(include_str!("../CHANGELOG.md").contains("## [0.2.1]"));
-        assert!(include_str!("../Cargo.toml").contains("version = \"0.2.1\""));
+    fn changelog_and_crate_are_0_2_2() {
+        assert!(include_str!("../CHANGELOG.md").contains("## [0.2.2]"));
+        assert!(include_str!("../Cargo.toml").contains("version = \"0.2.2\""));
     }
 
     #[test]
-    fn readme_has_no_invented_sidebar_shots() {
+    fn readme_leads_with_the_right_sidebar_tab() {
         let readme = include_str!("../README.md");
         assert!(!readme.contains(".png"));
         assert!(readme.contains("official"));
         assert!(readme.contains("not an iframe"));
-        assert!(readme.contains("cmux right-sidebar set custom beads"));
+        assert!(readme.contains("cmux right-sidebar set beads"));
+        assert!(readme.contains("cmux sidebar plugin use cmux-beads"));
         assert!(readme.contains("cmux-beads watch"));
+
+        let (product, disclaimed) = readme
+            .split_once("## Not the product")
+            .expect("README calls out the non-product commands");
+        for command in [
+            "cmux sidebar open beads",
+            "cmux sidebar select beads",
+            "cmux right-sidebar set custom beads",
+        ] {
+            assert!(
+                !product.contains(command),
+                "{command} must not appear before '## Not the product'"
+            );
+            assert!(
+                disclaimed.contains(command),
+                "{command} must be listed under '## Not the product'"
+            );
+        }
     }
 }
