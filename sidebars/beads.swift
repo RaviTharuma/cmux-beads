@@ -11,18 +11,6 @@ func hasText(_ value) -> Bool {
   return value != nil && value != ""
 }
 
-func hasColor(_ w) -> Bool {
-  return hasText(w.color)
-}
-
-func hasBranch(_ w) -> Bool {
-  return hasText(w.branch)
-}
-
-func hasProgress(_ w) -> Bool {
-  return w.progress != nil && w.progress.value != nil
-}
-
 func hasStatuses(_ w) -> Bool {
   return w.statuses != nil && w.statuses.count > 0
 }
@@ -35,33 +23,9 @@ func hasTabs(_ w) -> Bool {
   return w.tabs != nil && w.tabs.count > 0
 }
 
-func progressLabel(_ w) -> String {
-  if hasProgress(w) && hasText(w.progress.label) {
-    return w.progress.label
-  }
-  if hasProgress(w) {
-    let pct = Int(w.progress.value * 100)
-    return "\(pct)%"
-  }
-  return ""
-}
-
-func rowTint(_ w) -> String {
-  if hasColor(w) { return w.color }
-  if w.selected { return "accent" }
-  if w.unread > 0 { return "accent" }
-  return "secondary"
-}
-
 func statusTint(_ s) -> String {
   if hasText(s.color) { return s.color }
   return "accent"
-}
-
-func statusIcon(_ s) -> String {
-  if hasText(s.icon) { return s.icon }
-  if hasText(s.key) && s.key.hasPrefix("bead:") { return "circle.grid.3x3" }
-  return "circle.fill"
 }
 
 func statusLabel(_ s) -> String {
@@ -94,20 +58,23 @@ func tabFocusId(_ t) -> String {
 }
 
 func beadsStatusChip(_ s) -> some View {
-  HStack(spacing: 4) {
-    Image(systemName: statusIcon(s))
-      .font(.system(size: 8))
+  HStack(spacing: 0) {
+    RoundedRectangle(cornerRadius: 2)
+      .frame(width: 3, height: 36)
       .foregroundColor(statusTint(s))
-      .symbolRenderingMode(.hierarchical)
     Text(statusLabel(s))
-      .font(.system(size: 10, design: .monospaced))
-      .foregroundColor(hasText(s.color) ? s.color : "secondary")
+      .font(.system(size: 13))
+      .fontWeight(.semibold)
+      .foregroundColor("primary")
       .lineLimit(1)
+      .padding(.leading, 9)
+    Spacer()
   }
-  .padding(.horizontal, 5)
-  .padding(.vertical, 2)
+  .padding(.horizontal, 10)
+  .padding(.vertical, 7)
   .background {
-    Capsule().foregroundColor(statusTint(s)).opacity(0.16)
+    RoundedRectangle(cornerRadius: 10)
+      .foregroundColor("#7f7f7f14")
   }
 }
 
@@ -126,63 +93,40 @@ func beadsAgentChip(_ a) -> some View {
 
 func beadsWorkspaceRow(_ w) -> some View {
   Button(action: { cmux("workspace.select", workspace_id: w.id) }) {
-    HStack(alignment: .top, spacing: 8) {
+    HStack(spacing: 8) {
+      Image(systemName: "line.3.horizontal")
+        .font(.system(size: 9))
+        .foregroundColor("tertiary")
       Circle()
         .frame(width: 7, height: 7)
-        .foregroundColor(w.selected ? rowTint(w) : "tertiary")
-        .padding(.top, 5)
-      VStack(alignment: .leading, spacing: 3) {
-        HStack(spacing: 6) {
-          Image(systemName: "circle.grid.3x3")
-            .font(.system(size: 11))
-            .foregroundColor(rowTint(w))
-            .symbolRenderingMode(.hierarchical)
-            .frame(width: 14)
-          Text(w.title)
-            .font(.system(size: 12))
-            .fontWeight(w.selected ? .semibold : .regular)
-            .foregroundColor("primary")
-            .lineLimit(1)
-          Spacer()
-          if w.unread > 0 {
-            Text("\(w.unread)")
-              .font(.system(size: 9, design: .monospaced))
-              .fontWeight(.semibold)
-              .foregroundColor("accent")
+        .foregroundColor(w.selected ? "accent" : "tertiary")
+      Text(w.title)
+        .font(.system(size: 13))
+        .foregroundColor(w.selected ? "primary" : "secondary")
+        .lineLimit(1)
+      Spacer()
+      if w.pinned && !(w.unread > 0) {
+        Image(systemName: "pin.fill")
+          .font(.system(size: 8))
+          .foregroundColor("tertiary")
+      }
+      if w.unread > 0 {
+        Text("\(w.unread)")
+          .font(.system(size: 10))
+          .fontWeight(.bold)
+          .foregroundColor("white")
+          .padding(.horizontal, 5)
+          .padding(.vertical, 1)
+          .background {
+            Capsule().foregroundColor("#E4573D")
           }
-        }
-        HStack(spacing: 6) {
-          Text("\(w.tabCount) tabs")
-            .font(.system(size: 10, design: .monospaced))
-            .foregroundColor("secondary")
-          if hasBranch(w) {
-            Text(w.branch)
-              .font(.system(size: 10, design: .monospaced))
-              .foregroundColor("tertiary")
-              .lineLimit(1)
-          }
-          if w.dirty == true {
-            Text("*")
-              .font(.system(size: 10, design: .monospaced))
-              .foregroundColor("accent")
-          }
-          if hasProgress(w) {
-            Text(progressLabel(w))
-              .font(.system(size: 10, design: .monospaced))
-              .foregroundColor("accent")
-          }
-        }
-        if hasProgress(w) && w.progress.value < 1.0 {
-          ProgressView(value: w.progress.value, total: 1.0).tint(rowTint(w))
-        }
       }
     }
-    .padding(.vertical, 5)
-    .padding(.horizontal, 6)
+    .padding(.vertical, 6)
+    .padding(.horizontal, 10)
     .background {
-      RoundedRectangle(cornerRadius: 6)
-        .foregroundColor(w.selected ? "accent" : "primary")
-        .opacity(w.selected ? 0.14 : 0.04)
+      RoundedRectangle(cornerRadius: 8)
+        .foregroundColor(w.selected ? "#7f7f7f3d" : "#7f7f7f00")
     }
   }
   .contextMenu {
@@ -190,6 +134,12 @@ func beadsWorkspaceRow(_ w) -> some View {
     Button(w.pinned ? "Unpin" : "Pin") {
       cmux("workspace.action", action: w.pinned ? "unpin" : "pin", workspace_id: w.id)
     }
+    Button(w.unread > 0 ? "Mark as Read" : "Mark as Unread") {
+      cmux("workspace.action", action: w.unread > 0 ? "mark_read" : "mark_unread", workspace_id: w.id)
+    }
+    Button("Move Up") { cmux("workspace.action", action: "move_up", workspace_id: w.id) }
+    Button("Move Down") { cmux("workspace.action", action: "move_down", workspace_id: w.id) }
+    Button("Move to Top") { cmux("workspace.action", action: "move_top", workspace_id: w.id) }
   }
 }
 
@@ -201,17 +151,16 @@ func beadsTabRow(_ t) -> some View {
         .foregroundColor(t.focused ? "accent" : "secondary")
         .frame(width: 14)
       Text(t.title)
-        .font(.system(size: 11))
+        .font(.system(size: 12))
         .foregroundColor(t.focused ? "primary" : "secondary")
         .lineLimit(1)
       Spacer()
     }
-    .padding(.vertical, 3)
-    .padding(.horizontal, 6)
+    .padding(.vertical, 5)
+    .padding(.horizontal, 10)
     .background {
-      RoundedRectangle(cornerRadius: 4)
-        .foregroundColor("primary")
-        .opacity(0.04)
+      RoundedRectangle(cornerRadius: 7)
+        .foregroundColor("#7f7f7f14")
     }
   }
 }
@@ -243,7 +192,7 @@ func hostSurfaces(_ w) -> some View {
       }
     }
     if hasTabs(w) {
-      Text("Surfaces")
+      Text("SURFACES")
         .font(.system(size: 10))
         .fontWeight(.semibold)
         .foregroundColor("tertiary")
@@ -261,19 +210,26 @@ ScrollView {
         .foregroundColor("accent")
         .symbolRenderingMode(.hierarchical)
       Text("Beads")
-        .font(.headline)
+        .font(.system(size: 14))
         .fontWeight(.semibold)
-        .foregroundColor("accent")
+        .foregroundColor("primary")
       Spacer()
-      Text(clock.time)
-        .font(.system(size: 10, design: .monospaced))
+      Text("\(workspaceCount)")
+        .font(.system(size: 11, design: .monospaced))
         .foregroundColor("tertiary")
     }
     if hasText(selectedTitle) {
       Text(selectedTitle)
-        .font(.system(size: 11, design: .monospaced))
-        .foregroundColor("secondary")
+        .font(.system(size: 13))
+        .fontWeight(.semibold)
+        .foregroundColor("primary")
         .lineLimit(1)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background {
+          RoundedRectangle(cornerRadius: 10)
+            .foregroundColor("#7f7f7f24")
+        }
     }
 
     Divider()
@@ -286,10 +242,10 @@ ScrollView {
 
     VStack(alignment: .leading, spacing: 6) {
       HStack {
-        Text("Host")
-          .font(.caption)
+        Text("HOST")
+          .font(.system(size: 10))
           .fontWeight(.semibold)
-          .foregroundColor("secondary")
+          .foregroundColor("tertiary")
         Spacer()
         Text("\(workspaceCount)")
           .font(.system(size: 10, design: .monospaced))

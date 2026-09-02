@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.1] - 2026-09-02
+
+Deeper native right-sidebar chrome. The Beads panel matches built-in cmux
+examples: glass surface, host-chrome washes, optimistic Reorderable drag,
+context menus, and a 3pt tinted rail on live bead cards. Keyboard TUI is
+not the product.
+
+### Changed
+
+- `sidebars/beads.js` uses the same glass / `#7f7f7f**` wash language as
+  built-in `panel-todo.js`, `agents-cards.js`, and `workspaces.js`.
+- Host switcher uses `Image("line.3.horizontal")`, `hoverBackground`, pin and
+  unread badges, and `workspace.action` context menus (Pin, Mark read, Move).
+- Optimistic `selectOverride` / `orderOverride` so mouse select and drag stay
+  visible while cmux context refreshes.
+- Live bead cards use a 3pt rail tinted from the projected `s.color` (fallback
+  `accent`). Cards tap through `cmux("workspace.select")`.
+- `sidebars/beads.swift` matches: board first, Reorderable host list with a
+  drag handle, HOST / SURFACES labels, no clock-as-hero.
+- README no longer presents the keyboard TUI as a first-class product path.
+
 ## [0.2.0] - 2026-09-02
 
 Native Beads GUI in cmux is the product. The PTY TUI stays as a keyboard-only fallback.
