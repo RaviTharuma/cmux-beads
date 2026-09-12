@@ -11,6 +11,7 @@ pub fn help_lines() -> Vec<(&'static str, &'static str)> {
     vec![
         ("K / Tab", "cycle view (List / Table / Kanban)"),
         ("Shift+Tab", "cycle view backwards"),
+        ("f", "cycle focus (host / focus / assigned)"),
         ("j k ↑ ↓", "move selection"),
         ("h l ← →", "kanban: column (or retag in move mode)"),
         ("gg / G", "first / last"),
@@ -119,6 +120,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> bool {
         KeyCode::Char('?') => app.open_help(),
         KeyCode::Char('K') | KeyCode::Tab => app.cycle_view(false),
         KeyCode::BackTab => app.cycle_view(true),
+        KeyCode::Char('f') => app.cycle_focus_scope(),
         KeyCode::Char('j') | KeyCode::Down => app.nav_vert(1),
         KeyCode::Char('k') | KeyCode::Up => app.nav_vert(-1),
         KeyCode::Char('h') | KeyCode::Left => app.nav_horiz(-1),

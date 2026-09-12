@@ -13,6 +13,8 @@
 // Chrome matches built-in right-sidebar examples: glass surface, 14pt title,
 // 10/13 type, 8–10pt continuous corners, host hover wash, Reorderable.
 // Bind only live cmux context. Taps run cmux() only. No bd, no filesystem.
+// Board / List + Host / Focus / Assigned deepen the Beads tab into a
+// Trello-like todo for the focused host / pane / chat.
 
 const MAX_WORKSPACES = 40;
 const MAX_BEADS = 24;
@@ -23,6 +25,7 @@ const WASH_STRONG = "#7f7f7f3d";
 const CARD = "#7f7f7f14";
 const CARD_HOVER = "#7f7f7f28";
 const UNREAD = "#E4573D";
+const FOCUS_MARK = "\u25C8";
 
 const BEAD_COLUMNS = [
   "open",
@@ -38,6 +41,8 @@ let selectOverride = null;
 const [selectTick, setSelectTick] = signal(0);
 let orderOverride = null;
 const [orderTick, setOrderTick] = signal(0);
+const [viewMode, setViewMode] = signal("board");
+const [scopeMode, setScopeMode] = signal("host");
 
 function hasText(value) {
   return value != null && value !== "";
@@ -85,34 +90,45 @@ function beadStatuses(w) {
   return (w.statuses ?? []).filter(isBeadStatus).slice(0, MAX_BEADS);
 }
 
-function columnOf(s) {
-  const raw = hasText(s.value) ? String(s.value) : "";
-  const head = raw.split(" · ")[0];
-  for (let i = 0; i < BEAD_COLUMNS.length; i += 1) {
-    if (head === BEAD_COLUMNS[i]) return BEAD_COLUMNS[i];
-  }
-  return "open";
-}
-
 function chipLabel(s) {
   if (hasText(s.value)) return s.value;
   if (hasText(s.key)) return s.key;
   return "";
 }
 
+function valueParts(s) {
+  return String(chipLabel(s)).split(" · ");
+}
+
+function focusTagOf(s) {
+  const parts = valueParts(s);
+  if (parts.length < 2) return null;
+  const last = parts[parts.length - 1];
+  if (last.indexOf(FOCUS_MARK) === 0) return last.slice(FOCUS_MARK.length);
+  return null;
+}
+
+function columnOf(s) {
+  const parts = valueParts(s);
+  const head = parts[0] ?? "";
+  for (let i = 0; i < BEAD_COLUMNS.length; i += 1) {
+    if (head === BEAD_COLUMNS[i]) return BEAD_COLUMNS[i];
+  }
+  return "open";
+}
+
 function beadTitle(s) {
-  const raw = chipLabel(s);
-  const sep = " · ";
-  const at = raw.indexOf(sep);
-  if (at >= 0) return raw.slice(at + sep.length);
-  return raw;
+  const parts = valueParts(s);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  const end = focusTagOf(s) ? parts.length - 1 : parts.length;
+  const title = parts.slice(1, end).join(" · ");
+  return title || parts[0];
 }
 
 function beadStatusName(s) {
-  const raw = chipLabel(s);
-  const sep = " · ";
-  const at = raw.indexOf(sep);
-  if (at >= 0) return raw.slice(0, at);
+  const parts = valueParts(s);
+  if (parts.length >= 1 && BEAD_COLUMNS.indexOf(parts[0]) >= 0) return parts[0];
   return columnOf(s);
 }
 
@@ -134,14 +150,54 @@ function selectedWorkspace() {
   return selectedWorkspaces()[0] ?? null;
 }
 
+function focusedTab(w) {
+  return (w.tabs ?? []).find((t) => t.focused) ?? null;
+}
+
+function focusedAgent(w) {
+  const agents = w.agents ?? [];
+  return agents.find((a) => a.status === "working" || a.status === "needs_input") ?? agents[0] ?? null;
+}
+
+function focusLabel(w) {
+  const tab = focusedTab(w);
+  const agent = focusedAgent(w);
+  if (tab && hasText(tab.title) && agent && hasText(agent.name)) {
+    return String(tab.title) + " / " + String(agent.name);
+  }
+  if (tab && hasText(tab.title)) return String(tab.title);
+  if (agent && hasText(agent.name)) return String(agent.name);
+  return "";
+}
+
+function tagMatchesWorkspace(tag, w) {
+  if (!tag || !w) return false;
+  const ws = String(w.id);
+  if (tag === ws) return true;
+  return tag.indexOf(ws + "/") === 0;
+}
+
+function scopedBeads(w) {
+  scopeMode();
+  const all = beadStatuses(w);
+  const mode = scopeMode();
+  if (mode === "host") return all;
+  if (mode === "assigned") return all.filter((s) => focusTagOf(s));
+  // Focus: prefer tags for this host. When none match, show assigned so the
+  // board does not go blank while pane ids are unavailable to the scene.
+  const focused = all.filter((s) => tagMatchesWorkspace(focusTagOf(s), w));
+  if (focused.length > 0) return focused;
+  return all.filter((s) => focusTagOf(s));
+}
+
 function beadCount() {
   const selected = selectedWorkspace();
   if (!selected) return 0;
-  return beadStatuses(selected).length;
+  return scopedBeads(selected).length;
 }
 
 function beadsInColumn(w, col) {
-  return beadStatuses(w).filter((s) => columnOf(s) === col);
+  return scopedBeads(w).filter((s) => columnOf(s) === col);
 }
 
 function kanbanSections(w) {
@@ -152,6 +208,10 @@ function kanbanSections(w) {
     if (items.length > 0) out.push({ id: col, col: col, items: items });
   }
   return out.slice(0, 7);
+}
+
+function listSections(w) {
+  return kanbanSections(w);
 }
 
 function columnTitle(col) {
@@ -207,6 +267,36 @@ function unreadBadge(countFn) {
     .cornerRadius(7);
 }
 
+function modeChip(label, activeFn, onTap) {
+  return Text(label)
+    .font(10)
+    .weight(() => (activeFn() ? "semibold" : "regular"))
+    .color(() => (activeFn() ? "primary" : "tertiary"))
+    .paddingHorizontal(8)
+    .paddingVertical(4)
+    .cornerRadius(7)
+    .background(() => (activeFn() ? WASH_STRONG : null))
+    .hoverBackground(WASH)
+    .onTap(onTap);
+}
+
+function viewToggle() {
+  viewMode();
+  return HStack({ spacing: 4 }, [
+    modeChip("Board", () => viewMode() === "board", () => setViewMode("board")),
+    modeChip("List", () => viewMode() === "list", () => setViewMode("list")),
+  ]);
+}
+
+function scopeToggle() {
+  scopeMode();
+  return HStack({ spacing: 4 }, [
+    modeChip("Host", () => scopeMode() === "host", () => setScopeMode("host")),
+    modeChip("Focus", () => scopeMode() === "focus", () => setScopeMode("focus")),
+    modeChip("Assigned", () => scopeMode() === "assigned", () => setScopeMode("assigned")),
+  ]);
+}
+
 function beadCard(s, w) {
   return HStack({ spacing: 0 }, [
     RoundedRectangle({ width: 3, cornerRadius: 2 })
@@ -220,11 +310,16 @@ function beadCard(s, w) {
         .truncation("tail")
         .marquee()
         .color("primary"),
-      Text(() => beadStatusName(s()))
-        .font(10)
-        .monospaced()
-        .color(() => chipTint(s()))
-        .lineLimit(1),
+      HStack({ spacing: 6 }, [
+        Text(() => beadStatusName(s()))
+          .font(10)
+          .monospaced()
+          .color(() => chipTint(s()))
+          .lineLimit(1),
+        Text(() => (focusTagOf(s()) ? FOCUS_MARK : ""))
+          .font(10)
+          .color("tertiary"),
+      ]),
     ]).paddingLeading(9),
     Spacer({ minLength: 0 }),
   ])
@@ -308,23 +403,61 @@ function kanbanColumn(section, w) {
   ]);
 }
 
+function listRow(s, w) {
+  return beadCard(s, w);
+}
+
 function beadsBoard(w) {
+  viewMode();
+  scopeMode();
+  const emptyHint = () => {
+    if (scopedBeads(w()).length > 0) return "";
+    if (beadStatuses(w()).length === 0) {
+      return "Run cmux-beads watch to load the Beads board.";
+    }
+    if (scopeMode() === "focus") {
+      return "No beads tagged for this focus. Assign via cmux-beads TUI (A) or switch to Host.";
+    }
+    if (scopeMode() === "assigned") {
+      return "No pane-assigned beads yet. Assign from the TUI (A), then watch.";
+    }
+    return "";
+  };
   return VStack({ spacing: 8 }, [
-    Text(() =>
-      beadStatuses(w()).length === 0
-        ? "Run cmux-beads watch to load the Beads board."
-        : "",
-    )
+    Text(emptyHint)
       .font(11)
       .color("tertiary")
       .paddingHorizontal(10)
       .lineLimit(3),
     ForEach(
       {
-        items: () => kanbanSections(w()),
-        key: (s) => s.id,
+        items: () =>
+          viewMode() === "list" ? listSections(w()) : kanbanSections(w()),
+        key: (s) => (viewMode() === "list" ? "list:" : "board:") + s.id,
       },
-      (section) => kanbanColumn(section, w),
+      (section) =>
+        viewMode() === "list"
+          ? VStack({ spacing: 4 }, [
+              HStack({ spacing: 6 }, [
+                Text(() => columnTitle(section().col))
+                  .font(10)
+                  .weight("semibold")
+                  .color("tertiary"),
+                Spacer(),
+                Text(() => String((section().items ?? []).length))
+                  .font(10)
+                  .monospaced()
+                  .color("tertiary"),
+              ]).paddingHorizontal(10),
+              ForEach(
+                {
+                  items: () => (section().items ?? []).slice(0, MAX_BEADS),
+                  key: (s) => s.key ?? s.value,
+                },
+                (s) => listRow(s, w),
+              ),
+            ])
+          : kanbanColumn(section, w),
     ),
   ]);
 }
@@ -361,23 +494,40 @@ function hostHeader() {
 }
 
 function selectedHeader() {
-  return HStack({ spacing: 8 }, [
-    Text(() => data.selectedTitle() ?? "")
-      .font(13)
-      .weight("semibold")
-      .lineLimit(1)
-      .truncation("tail")
-      .marquee()
-      .color("primary"),
-    Spacer(),
-    unreadBadge(() => selectedWorkspace()?.unread ?? 0),
-  ])
-    .paddingHorizontal(10)
-    .paddingVertical(() => (data.selectedTitle() ? 8 : 0))
-    .cornerRadius(10)
-    .background(() => (data.selectedTitle() ? WASH : null))
-    .hoverBackground(() => (data.selectedTitle() ? WASH_SOFT : null))
-    .frame({ maxWidth: "infinity" });
+  return VStack({ spacing: 4 }, [
+    HStack({ spacing: 8 }, [
+      Text(() => data.selectedTitle() ?? "")
+        .font(13)
+        .weight("semibold")
+        .lineLimit(1)
+        .truncation("tail")
+        .marquee()
+        .color("primary"),
+      Spacer(),
+      unreadBadge(() => selectedWorkspace()?.unread ?? 0),
+    ])
+      .paddingHorizontal(10)
+      .paddingVertical(() => (data.selectedTitle() ? 8 : 0))
+      .cornerRadius(10)
+      .background(() => (data.selectedTitle() ? WASH : null))
+      .hoverBackground(() => (data.selectedTitle() ? WASH_SOFT : null))
+      .frame({ maxWidth: "infinity" }),
+    ForEach(
+      {
+        items: selectedWorkspaces,
+        key: (w) => "focus:" + w.id,
+      },
+      (w) =>
+        Text(() => {
+          const label = focusLabel(w());
+          return label ? "Focus · " + label : "";
+        })
+          .font(10)
+          .color("tertiary")
+          .paddingHorizontal(10)
+          .lineLimit(1),
+    ),
+  ]);
 }
 
 sidebar(
@@ -391,6 +541,7 @@ sidebar(
           .monospaced()
           .color("tertiary"),
       ]).paddingHorizontal(10),
+      HStack({ spacing: 8 }, [viewToggle(), Spacer(), scopeToggle()]).paddingHorizontal(6),
       selectedHeader(),
       ForEach(
         {
@@ -420,7 +571,7 @@ sidebar(
         },
         (w) => surfaces(w),
       ),
-      Text("Beads board updates after cmux-beads sync or watch.")
+      Text("Status moves: cmux-beads update. Board updates after sync or watch.")
         .font(11)
         .color("tertiary")
         .paddingHorizontal(10)

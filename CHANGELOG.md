@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.3] - 2026-09-12
+
+Trello-like Beads kanban in the right sidebar: Board / List, focus-scoping to
+the selected host and pane-assigned issues.
+
+### Added
+
+- Interpreted `sidebars/beads.js`: Board ↔ List toggle, Host / Focus / Assigned
+  scope, focus strip (surface / agent), kanban columns with focus-tagged cards.
+- Interpreted `sidebars/beads.swift`: status-column kanban board (Open /
+  In Progress / Blocked / …) instead of a flat pill list.
+- `cmux-beads watch` / `sync` append compact `◈{workspace}/{pane}` focus tags
+  on pills when `assignee` is a cmux pane binding (still no `cmux:`, email, or
+  path on the pill).
+- Keyboard TUI: `f` cycles focus scope Host → Focus → Assigned; header shows
+  the active focus filter.
+
+### Changed
+
+- Status moves from the interpreted scene remain on `cmux-beads update` (no
+  `bd` from the sidebar). Docs and footer copy say so.
+
 ## [0.2.2] - 2026-09-02
 
 Beads is a **tab on the existing right sidebar** (sibling of Files / Find /

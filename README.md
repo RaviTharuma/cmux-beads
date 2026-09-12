@@ -53,12 +53,24 @@ These commands exist in cmux but are **not** how Beads ships:
 
 ## What you see
 
-- **Beads** — the board is the product. Projected `bead:<id>` cards with a 3pt tinted rail, grouped by status.
-- **Host** — live cmux workspaces under the board. Drag to reorder (`workspace.reorder`). Click to select (`cmux("workspace.select")`). Right-click for Pin / Move.
+- **Beads** — Trello-like Board (status columns) or List, with Host / Focus /
+  Assigned scope for the selected workspace. Projected `bead:<id>` cards use a
+  3pt tinted rail; pane-assigned cards may show a compact focus mark after
+  `cmux-beads watch`.
+- **Host** — live cmux workspaces under the board. Drag to reorder
+  (`workspace.reorder`). Click to select (`cmux("workspace.select")`).
+  Right-click for Pin / Move.
 - **Surfaces** — tabs on the selected host run `surface.focus`.
-- Built-in chrome: glass surface, Ghostty/cmux tokens (`accent` / `primary` / `secondary` / `tertiary`) plus host washes (`#7f7f7f14` / `#7f7f7f24` / `#7f7f7f28` / `#7f7f7f3d`).
+- Built-in chrome: glass surface, Ghostty/cmux tokens (`accent` / `primary` /
+  `secondary` / `tertiary`) plus host washes (`#7f7f7f14` / `#7f7f7f24` /
+  `#7f7f7f28` / `#7f7f7f3d`).
 
-The tab never invents a team, never hardcodes titles, and never touches the filesystem. Product screenshots, if added later, are lab captures of live cmux only.
+Status changes persist through `cmux-beads update` (or the keyboard TUI), not
+from the interpreted sidebar scene.
+
+The tab never invents a team, never hardcodes titles, and never touches the
+filesystem. Product screenshots, if added later, are lab captures of live cmux
+only.
 
 ## CLI
 
@@ -88,7 +100,7 @@ cmux-beads update lab-2 --status in_progress
 [plugin]
 name = "cmux-beads"
 kind = "sidebar"
-version = "0.2.2"
+version = "0.2.3"
 description = "Official Beads tab on the cmux right sidebar; PTY TUI is keyboard-only fallback"
 
 [run]

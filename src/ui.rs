@@ -106,8 +106,9 @@ fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
         health,
         Span::styled(
             format!(
-                " {} {} {}{filter}{move_flag}",
+                " {} {} {} {}{filter}{move_flag}",
                 app.view.title(),
+                app.focus_scope.title(),
                 app.scope.label(),
                 mode
             ),
@@ -289,7 +290,7 @@ fn draw_empty(frame: &mut Frame<'_>, area: Rect, app: &App) {
 fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let count = app.visible().len();
     let total = app.beads.len();
-    let keys = "K views  A assign  ? help";
+    let keys = "K views  f focus  A assign  ? help";
     let msg = if app.status_msg.is_empty() {
         format!("{count}/{total}  {keys}")
     } else {

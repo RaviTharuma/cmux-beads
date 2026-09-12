@@ -9,7 +9,8 @@ use cmux_client::CmuxClient;
 
 use crate::bd::{self, Bead, BridgeError, ISSUE_TYPES, ListMode, NewBead, Scope};
 use crate::board::{
-    BoardView, SortKey, adjacent_status, index_of, kanban_columns, status_choices, visible_beads,
+    BoardView, FocusScope, SortKey, adjacent_status, index_of, kanban_columns, matches_focus_scope,
+    status_choices, visible_beads,
 };
 use crate::cwd;
 use crate::form::BeadForm;
@@ -57,6 +58,7 @@ pub struct App {
     pub filter: String,
     pub form: BeadForm,
     pub view: BoardView,
+    pub focus_scope: FocusScope,
     pub sort: SortKey,
     pub scope: Scope,
     pub ready_only: bool,
@@ -94,6 +96,7 @@ impl App {
             filter: String::new(),
             form: BeadForm::new(Vec::new()),
             view: BoardView::List,
+            focus_scope: FocusScope::Host,
             sort: SortKey::Status,
             scope: Scope::Repo,
             ready_only: false,
@@ -118,19 +121,37 @@ impl App {
         app
     }
 
-    /// Visible rows for the current filter and sort.
+    /// Visible rows for the current filter, focus scope, and sort.
     #[must_use]
     pub fn visible(&self) -> Vec<&Bead> {
+        let focused = self.focused_assignee();
         visible_beads(&self.beads, &self.active_filter(), self.sort)
             .into_iter()
             .filter(|bead| self.include_closed || !bead.is_closed())
+            .filter(|bead| matches_focus_scope(bead, self.focus_scope, focused.as_deref()))
             .collect()
     }
 
-    /// Kanban columns from the current board.
+    /// Kanban columns from the current board with focus scope applied.
     #[must_use]
     pub fn kanban(&self) -> Vec<(String, Vec<&Bead>)> {
-        kanban_columns(&self.beads, &self.active_filter(), self.include_closed)
+        let focused = self.focused_assignee();
+        kanban_columns(
+            &self.beads,
+            &self.active_filter(),
+            self.include_closed,
+            self.focus_scope,
+            focused.as_deref(),
+        )
+    }
+
+    /// Assignee string for the live focused pane, if any.
+    #[must_use]
+    pub fn focused_assignee(&self) -> Option<String> {
+        self.live_panes
+            .iter()
+            .find(|pane| pane.active)
+            .map(LivePane::assignee)
     }
 
     fn active_filter(&self) -> String {
@@ -381,6 +402,16 @@ impl App {
             self.view.next()
         };
         self.status_msg = format!("view: {}", self.view.title());
+    }
+
+    /// Cycle Host / Focus / Assigned focus filters in-process.
+    pub fn cycle_focus_scope(&mut self) {
+        self.focus_scope = self.focus_scope.next();
+        self.status_msg = format!("focus: {}", self.focus_scope.title());
+        if self.selected_bead().is_none() {
+            let rows = self.visible();
+            self.selected = rows.first().map(|bead| bead.id.clone());
+        }
     }
 
     /// Move the selection by `delta` rows.
