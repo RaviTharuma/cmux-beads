@@ -1,6 +1,7 @@
 //! Pure board presentation: filter, group, views, and selection helpers.
 
 use crate::bd::{Bead, KNOWN_STATUSES};
+use crate::sessions;
 
 /// In-process view. Switching does not respawn or reload `bd`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +40,58 @@ impl BoardView {
             Self::Table => "Table",
             Self::Kanban => "Kanban",
         }
+    }
+}
+
+/// Focus filter for the board. Does not change the `bd` store.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FocusScope {
+    /// Every bead on the loaded board.
+    #[default]
+    Host,
+    /// Beads assigned to the live focused pane (`cmux:{ws}/{pane}`).
+    Focus,
+    /// Beads with any cmux pane assignee.
+    Assigned,
+}
+
+impl FocusScope {
+    /// Cycle Host → Focus → Assigned → Host.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Host => Self::Focus,
+            Self::Focus => Self::Assigned,
+            Self::Assigned => Self::Host,
+        }
+    }
+
+    /// Header label.
+    #[must_use]
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Host => "host",
+            Self::Focus => "focus",
+            Self::Assigned => "assigned",
+        }
+    }
+}
+
+/// Whether `bead` matches the active focus scope.
+///
+/// When `Focus` is selected but no live pane is active, every bead matches so
+/// the board does not go blank while cmux reconnects.
+#[must_use]
+pub fn matches_focus_scope(bead: &Bead, scope: FocusScope, focused_assignee: Option<&str>) -> bool {
+    match scope {
+        FocusScope::Host => true,
+        FocusScope::Focus => match focused_assignee {
+            Some(want) => bead.assignee_raw() == Some(want),
+            None => true,
+        },
+        FocusScope::Assigned => bead
+            .assignee_raw()
+            .is_some_and(|raw| sessions::parse_assignee(raw).is_some()),
     }
 }
 
@@ -134,12 +187,14 @@ pub fn status_choices(beads: &[Bead]) -> Vec<String> {
     choices
 }
 
-/// Kanban columns: each status that should be shown, with its cards.
+/// Kanban columns with a focus scope filter.
 #[must_use]
 pub fn kanban_columns<'a>(
     beads: &'a [Bead],
     query: &str,
     include_closed: bool,
+    focus: FocusScope,
+    focused_assignee: Option<&str>,
 ) -> Vec<(String, Vec<&'a Bead>)> {
     let choices: Vec<String> = status_choices(beads)
         .into_iter()
@@ -153,6 +208,7 @@ pub fn kanban_columns<'a>(
                 .filter(|bead| {
                     bead.status == status
                         && matches_filter(bead, query)
+                        && matches_focus_scope(bead, focus, focused_assignee)
                         && (include_closed || !bead.is_closed() || status == "closed")
                 })
                 .collect();
@@ -234,7 +290,7 @@ mod tests {
     #[test]
     fn kanban_columns_are_statuses() {
         let beads = fixture();
-        let columns = kanban_columns(&beads, "", false);
+        let columns = kanban_columns(&beads, "", false, FocusScope::Host, None);
         let open = columns.iter().find(|(status, _)| status == "open").unwrap();
         assert_eq!(open.1[0].id, "demo-1");
         let next = adjacent_status(&columns, "open", 1).unwrap();
@@ -247,5 +303,33 @@ mod tests {
         assert_eq!(BoardView::Table.next(), BoardView::Kanban);
         assert_eq!(BoardView::Kanban.next(), BoardView::List);
         assert_eq!(BoardView::List.prev(), BoardView::Kanban);
+    }
+
+    #[test]
+    fn focus_scope_filters_assigned_pane() {
+        let mut beads = fixture();
+        beads[0].assignee = Some("cmux:1/12".into());
+        beads[1].assignee = Some("cmux:1/99".into());
+        assert!(matches_focus_scope(
+            &beads[0],
+            FocusScope::Focus,
+            Some("cmux:1/12")
+        ));
+        assert!(!matches_focus_scope(
+            &beads[1],
+            FocusScope::Focus,
+            Some("cmux:1/12")
+        ));
+        assert!(matches_focus_scope(
+            &beads[2],
+            FocusScope::Host,
+            Some("cmux:1/12")
+        ));
+        assert!(matches_focus_scope(&beads[0], FocusScope::Assigned, None));
+        assert!(!matches_focus_scope(&beads[2], FocusScope::Assigned, None));
+        let columns = kanban_columns(&beads, "", false, FocusScope::Focus, Some("cmux:1/12"));
+        let open = columns.iter().find(|(status, _)| status == "open").unwrap();
+        assert_eq!(open.1.len(), 1);
+        assert_eq!(open.1[0].id, "demo-1");
     }
 }

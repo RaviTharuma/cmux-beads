@@ -269,8 +269,8 @@ mod tests {
             "plugin name must be cmux-beads"
         );
         assert!(
-            raw.contains("version = \"0.2.2\""),
-            "plugin version must be 0.2.2"
+            raw.contains("version = \"0.2.3\""),
+            "plugin version must be 0.2.3"
         );
         assert!(
             raw.contains("target/release/cmux-beads"),
@@ -327,6 +327,12 @@ mod tests {
         assert!(js.contains("\"primary\""));
         assert!(js.contains("\"secondary\""));
         assert!(js.contains("\"tertiary\""));
+        assert!(js.contains("viewMode"));
+        assert!(js.contains("scopeMode"));
+        assert!(js.contains("Board"));
+        assert!(js.contains("List"));
+        assert!(js.contains("Focus"));
+        assert!(js.contains("Assigned"));
         assert!(!js.contains("spawn"));
         assert!(!js.contains("require("));
         assert!(!js.contains("fetch("));
@@ -358,9 +364,9 @@ mod tests {
     }
 
     #[test]
-    fn changelog_and_crate_are_0_2_2() {
-        assert!(include_str!("../CHANGELOG.md").contains("## [0.2.2]"));
-        assert!(include_str!("../Cargo.toml").contains("version = \"0.2.2\""));
+    fn changelog_and_crate_are_0_2_3() {
+        assert!(include_str!("../CHANGELOG.md").contains("## [0.2.3]"));
+        assert!(include_str!("../Cargo.toml").contains("version = \"0.2.3\""));
     }
 
     #[test]

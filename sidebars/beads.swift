@@ -15,6 +15,7 @@
 // The Beads board is the product. Host workspaces are the switcher.
 // Bead rows appear after `cmux-beads sync` / `watch` writes bead:<id> keys.
 // Chrome uses Ghostty/cmux theme tokens so dark/light follow the host.
+// Kanban columns group projected pills by status (Trello-like board).
 
 func hasText(_ value) -> Bool {
   return value != nil && value != ""
@@ -45,6 +46,21 @@ func statusLabel(_ s) -> String {
 
 func isBeadStatus(_ s) -> Bool {
   return hasText(s.key) && s.key.hasPrefix("bead:")
+}
+
+func beadColumn(_ s) -> String {
+  let raw = statusLabel(s)
+  if raw.hasPrefix("in_progress") { return "in_progress" }
+  if raw.hasPrefix("blocked") { return "blocked" }
+  if raw.hasPrefix("deferred") { return "deferred" }
+  if raw.hasPrefix("pinned") { return "pinned" }
+  if raw.hasPrefix("hooked") { return "hooked" }
+  if raw.hasPrefix("closed") { return "closed" }
+  return "open"
+}
+
+func isColumn(_ s, _ col: String) -> Bool {
+  return isBeadStatus(s) && beadColumn(s) == col
 }
 
 func agentTint(_ a) -> String {
@@ -174,12 +190,29 @@ func beadsTabRow(_ t) -> some View {
   }
 }
 
+func beadsKanbanColumn(_ title: String, _ w, _ col: String) -> some View {
+  VStack(alignment: .leading, spacing: 4) {
+    Text(title)
+      .font(.system(size: 10))
+      .fontWeight(.semibold)
+      .foregroundColor("tertiary")
+      .padding(.horizontal, 10)
+    ForEach(w.statuses.filter { isColumn($0, col) }.prefix(24)) { s in
+      beadsStatusChip(s)
+    }
+  }
+}
+
 func beadsBoard(_ w) -> some View {
-  VStack(alignment: .leading, spacing: 6) {
+  VStack(alignment: .leading, spacing: 8) {
     if hasStatuses(w) {
-      ForEach(w.statuses.filter { isBeadStatus($0) }.prefix(24)) { s in
-        beadsStatusChip(s)
-      }
+      beadsKanbanColumn("OPEN", w, "open")
+      beadsKanbanColumn("IN PROGRESS", w, "in_progress")
+      beadsKanbanColumn("BLOCKED", w, "blocked")
+      beadsKanbanColumn("DEFERRED", w, "deferred")
+      beadsKanbanColumn("PINNED", w, "pinned")
+      beadsKanbanColumn("HOOKED", w, "hooked")
+      beadsKanbanColumn("CLOSED", w, "closed")
     }
     if !hasStatuses(w) {
       Text("Run cmux-beads watch to load the Beads board.")
@@ -278,7 +311,7 @@ ScrollView {
 
     Divider()
 
-    Text("Beads board updates after cmux-beads sync or watch.")
+    Text("Status moves: cmux-beads update. Board updates after sync or watch.")
       .font(.caption)
       .foregroundColor("tertiary")
       .lineLimit(3)

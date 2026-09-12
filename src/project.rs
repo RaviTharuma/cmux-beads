@@ -7,6 +7,7 @@
 use std::collections::BTreeMap;
 
 use crate::bd::Bead;
+use crate::sessions;
 
 /// Prefix for every projected status key.
 pub const STATUS_PREFIX: &str = "bead:";
@@ -16,6 +17,10 @@ pub const MAX_PILLS: usize = 24;
 
 /// Display value budget for `cmux set-status`.
 pub const VALUE_MAX: usize = 48;
+
+/// Compact focus affinity marker on pill values (`◈{workspace}/{pane}`).
+/// Never uses `cmux:`, emails, or filesystem paths.
+pub const FOCUS_MARKER: char = '◈';
 
 /// Safe bead id: starts alphanumeric, then `A-Za-z0-9._-`.
 const ID_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-";
@@ -107,16 +112,47 @@ pub fn style_for(status: &str) -> StatusStyle {
     }
 }
 
-/// Chip label: `{status} · {title}`. Title only — never assignee, path, or email.
+/// Compact focus tag when `assignee` is a live cmux pane binding.
+///
+/// Returns `◈{workspace_id}/{pane_id}` so the sidebar can filter without
+/// embedding `cmux:`, emails, or paths on the pill.
+#[must_use]
+pub fn focus_tag(bead: &Bead) -> Option<String> {
+    let raw = bead.assignee_raw()?;
+    let (workspace_id, pane_id) = sessions::parse_assignee(raw)?;
+    Some(format!("{FOCUS_MARKER}{workspace_id}/{pane_id}"))
+}
+
+/// Parse a focus tag from a pill value (`… · ◈ws/pane`).
+#[must_use]
+pub fn parse_focus_tag(value: &str) -> Option<(u64, u64)> {
+    let tag = value
+        .rsplit(" · ")
+        .next()
+        .map(str::trim)
+        .filter(|part| part.starts_with(FOCUS_MARKER))?;
+    let rest = tag.trim_start_matches(FOCUS_MARKER);
+    let (workspace, pane) = rest.split_once('/')?;
+    Some((workspace.parse().ok()?, pane.parse().ok()?))
+}
+
+/// Chip label: `{status} · {title}` and optional ` · ◈ws/pane`.
+/// Title only for the middle segment — never assignee, path, or email.
 #[must_use]
 pub fn pill_value(bead: &Bead) -> String {
     let title = bead.title.trim();
-    let raw = if title.is_empty() {
+    let base = if title.is_empty() {
         bead.status.clone()
     } else {
         format!("{} · {title}", bead.status)
     };
-    truncate_chars(&raw, VALUE_MAX)
+    let Some(tag) = focus_tag(bead) else {
+        return truncate_chars(&base, VALUE_MAX);
+    };
+    let sep = " · ";
+    let budget = VALUE_MAX.saturating_sub(sep.len() + tag.chars().count());
+    let head = truncate_chars(&base, budget.max(1));
+    truncate_chars(&format!("{head}{sep}{tag}"), VALUE_MAX)
 }
 
 /// Project beads into pills. Closed issues are omitted unless requested.
@@ -143,6 +179,15 @@ pub fn pills_from_beads(beads: &[Bead], include_closed: bool) -> Vec<StatusPill>
         }
     }
     pills
+}
+
+/// Count pills that carry a pane focus tag.
+#[must_use]
+pub fn count_focused(pills: &[StatusPill]) -> u32 {
+    pills
+        .iter()
+        .filter(|pill| parse_focus_tag(&pill.value).is_some())
+        .count() as u32
 }
 
 /// Count pills by the `bd` status prefix of the value.
@@ -342,6 +387,43 @@ mod tests {
             );
             assert!(!value.contains("cmux:"), "assignee stays off the pill");
         }
+    }
+
+    #[test]
+    fn pill_value_appends_focus_tag_for_cmux_assignee() {
+        let mut bead = lab().into_iter().find(|bead| bead.id == "lab-2").unwrap();
+        bead.assignee = Some("cmux:7/42".into());
+        let value = pill_value(&bead);
+        assert!(value.starts_with("in_progress · "));
+        assert!(value.ends_with(" · ◈7/42"), "{value}");
+        assert!(!value.contains("cmux:"));
+        assert_eq!(parse_focus_tag(&value), Some((7, 42)));
+        assert_eq!(focus_tag(&bead).as_deref(), Some("◈7/42"));
+        assert_eq!(
+            count_focused(&[StatusPill {
+                key: "bead:lab-2".into(),
+                value: value.clone(),
+                icon: "hammer".into(),
+                color: "#ff9500".into(),
+                priority: 80,
+            }]),
+            1
+        );
+    }
+
+    #[test]
+    fn pill_value_preserves_focus_tag_under_truncation() {
+        let bead = Bead {
+            id: "long".into(),
+            status: "in_progress".into(),
+            title: "This title is deliberately very long for the pill budget".into(),
+            assignee: Some("cmux:1/9".into()),
+            ..Bead::default()
+        };
+        let value = pill_value(&bead);
+        assert!(value.chars().count() <= VALUE_MAX);
+        assert_eq!(parse_focus_tag(&value), Some((1, 9)));
+        assert!(!value.contains("cmux:"));
     }
 
     #[test]

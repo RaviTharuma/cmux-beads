@@ -155,10 +155,18 @@ fn apply_plan(
         }
     }
     let summary = format!(
-        "cmux-beads sync: {} beads → cmux ws={} ({}{})",
+        "cmux-beads sync: {} beads → cmux ws={} ({}{}{})",
         plan.apply.len(),
         workspace,
         format_counts(&plan.counts),
+        {
+            let focused = crate::project::count_focused(&plan.apply);
+            if focused == 0 {
+                String::new()
+            } else {
+                format!(" focus={focused}")
+            }
+        },
         if stale_cleared.is_empty() {
             String::new()
         } else {
