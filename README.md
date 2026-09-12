@@ -100,7 +100,7 @@ cmux-beads update lab-2 --status in_progress
 [plugin]
 name = "cmux-beads"
 kind = "sidebar"
-version = "0.2.3"
+version = "0.2.4"
 description = "Official Beads tab on the cmux right sidebar; PTY TUI is keyboard-only fallback"
 
 [run]
