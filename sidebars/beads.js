@@ -10,11 +10,13 @@
 //
 // Restricted JS scene (cmux docs/custom-sidebars.md). Native right-sidebar
 // rendering, not an iframe and not a PTY stuffed in a pane.
-// Chrome matches built-in right-sidebar examples: glass surface, 14pt title,
-// 10/13 type, 8–10pt continuous corners, host hover wash, Reorderable.
-// Bind only live cmux context. Taps run cmux() only. No bd, no filesystem.
-// Board / List + Host / Focus / Assigned deepen the Beads tab into a
-// Trello-like todo for the focused host / pane / chat.
+// Chrome matches built-in right-sidebar siblings (Files / Find / Dock) and
+// host examples (panel-todo, panel-sessions): glass surface, 14pt title,
+// 10/11/13 type, 6–8pt continuous corners, host hover wash, Reorderable.
+// Flat rows — no card fills, shadows, or brand palette. Scope chips match
+// panel-sessions. Bind only live cmux context. Taps run cmux() only.
+// Board / List + Host / Focus / Assigned deepen Beads for the focused
+// host / pane / chat.
 
 const MAX_WORKSPACES = 40;
 const MAX_BEADS = 24;
@@ -22,8 +24,7 @@ const MAX_TABS = 12;
 const WASH = "#7f7f7f24";
 const WASH_SOFT = "#7f7f7f1c";
 const WASH_STRONG = "#7f7f7f3d";
-const CARD = "#7f7f7f14";
-const CARD_HOVER = "#7f7f7f28";
+const WASH_FAINT = "#7f7f7f14";
 const UNREAD = "#E4573D";
 const FOCUS_MARK = "\u25C8";
 
@@ -156,7 +157,11 @@ function focusedTab(w) {
 
 function focusedAgent(w) {
   const agents = w.agents ?? [];
-  return agents.find((a) => a.status === "working" || a.status === "needs_input") ?? agents[0] ?? null;
+  return (
+    agents.find((a) => a.status === "working" || a.status === "needs_input") ??
+    agents[0] ??
+    null
+  );
 }
 
 function focusLabel(w) {
@@ -183,8 +188,6 @@ function scopedBeads(w) {
   const mode = scopeMode();
   if (mode === "host") return all;
   if (mode === "assigned") return all.filter((s) => focusTagOf(s));
-  // Focus: prefer tags for this host. When none match, show assigned so the
-  // board does not go blank while pane ids are unavailable to the scene.
   const focused = all.filter((s) => tagMatchesWorkspace(focusTagOf(s), w));
   if (focused.length > 0) return focused;
   return all.filter((s) => focusTagOf(s));
@@ -267,16 +270,17 @@ function unreadBadge(countFn) {
     .cornerRadius(7);
 }
 
+// Same control language as panel-sessions scope chips.
 function modeChip(label, activeFn, onTap) {
   return Text(label)
-    .font(10)
-    .weight(() => (activeFn() ? "semibold" : "regular"))
+    .font(11)
+    .weight("semibold")
     .color(() => (activeFn() ? "primary" : "tertiary"))
     .paddingHorizontal(8)
-    .paddingVertical(4)
-    .cornerRadius(7)
+    .paddingVertical(3)
+    .cornerRadius(6)
     .background(() => (activeFn() ? WASH_STRONG : null))
-    .hoverBackground(WASH)
+    .hoverBackground(WASH_STRONG)
     .onTap(onTap);
 }
 
@@ -297,15 +301,29 @@ function scopeToggle() {
   ]);
 }
 
-function beadCard(s, w) {
+function sectionLabel(title, countFn) {
+  return HStack({ spacing: 6 }, [
+    Text(() => (typeof title === "function" ? title() : title))
+      .font(10)
+      .weight("semibold")
+      .color("tertiary"),
+    Spacer(),
+    Text(() => String(countFn()))
+      .font(10)
+      .monospaced()
+      .color("tertiary"),
+  ]).paddingHorizontal(10);
+}
+
+// Flat row like panel-todo / Files: idle transparent, hover wash, 3pt rail.
+function beadRow(s, w) {
   return HStack({ spacing: 0 }, [
-    RoundedRectangle({ width: 3, cornerRadius: 2 })
+    RoundedRectangle({ width: 3, cornerRadius: 1 })
       .fill(() => chipTint(s()))
-      .frame({ height: 36 }),
-    VStack({ spacing: 2 }, [
+      .frame({ height: 28 }),
+    VStack({ spacing: 1 }, [
       Text(() => beadTitle(s()))
         .font(13)
-        .weight("semibold")
         .lineLimit(1)
         .truncation("tail")
         .marquee()
@@ -314,20 +332,19 @@ function beadCard(s, w) {
         Text(() => beadStatusName(s()))
           .font(10)
           .monospaced()
-          .color(() => chipTint(s()))
+          .color("tertiary")
           .lineLimit(1),
         Text(() => (focusTagOf(s()) ? FOCUS_MARK : ""))
           .font(10)
           .color("tertiary"),
       ]),
-    ]).paddingLeading(9),
+    ]).paddingLeading(8),
     Spacer({ minLength: 0 }),
   ])
     .paddingHorizontal(10)
-    .paddingVertical(7)
-    .cornerRadius(10)
-    .background(CARD)
-    .hoverBackground(CARD_HOVER)
+    .paddingVertical(6)
+    .cornerRadius(8)
+    .hoverBackground(WASH)
     .frame({ maxWidth: "infinity" })
     .onTap(() => selectWorkspace(w().id))
     .contextMenu([
@@ -374,37 +391,26 @@ function tabRow(t) {
   ])
     .paddingHorizontal(10)
     .paddingVertical(5)
-    .cornerRadius(7)
+    .cornerRadius(8)
     .hoverBackground(WASH)
     .frame({ maxWidth: "infinity" })
     .onTap(() => cmux("surface.focus", { surface_id: tabFocusId(t()) }));
 }
 
 function kanbanColumn(section, w) {
-  return VStack({ spacing: 4 }, [
-    HStack({ spacing: 6 }, [
-      Text(() => columnTitle(section().col))
-        .font(10)
-        .weight("semibold")
-        .color("tertiary"),
-      Spacer(),
-      Text(() => String((section().items ?? []).length))
-        .font(10)
-        .monospaced()
-        .color("tertiary"),
-    ]).paddingHorizontal(10),
+  return VStack({ spacing: 2 }, [
+    sectionLabel(
+      () => columnTitle(section().col),
+      () => (section().items ?? []).length,
+    ),
     ForEach(
       {
         items: () => (section().items ?? []).slice(0, MAX_BEADS),
         key: (s) => s.key ?? s.value,
       },
-      (s) => beadCard(s, w),
+      (s) => beadRow(s, w),
     ),
   ]);
-}
-
-function listRow(s, w) {
-  return beadCard(s, w);
 }
 
 function beadsBoard(w) {
@@ -413,17 +419,17 @@ function beadsBoard(w) {
   const emptyHint = () => {
     if (scopedBeads(w()).length > 0) return "";
     if (beadStatuses(w()).length === 0) {
-      return "Run cmux-beads watch to load the Beads board.";
+      return "Run cmux-beads watch to load the board.";
     }
     if (scopeMode() === "focus") {
-      return "No beads tagged for this focus. Assign via cmux-beads TUI (A) or switch to Host.";
+      return "No beads for this focus. Assign in the TUI (A) or switch to Host.";
     }
     if (scopeMode() === "assigned") {
-      return "No pane-assigned beads yet. Assign from the TUI (A), then watch.";
+      return "No pane-assigned beads yet. Assign in the TUI (A), then watch.";
     }
     return "";
   };
-  return VStack({ spacing: 8 }, [
+  return VStack({ spacing: 6 }, [
     Text(emptyHint)
       .font(11)
       .color("tertiary")
@@ -435,43 +441,17 @@ function beadsBoard(w) {
           viewMode() === "list" ? listSections(w()) : kanbanSections(w()),
         key: (s) => (viewMode() === "list" ? "list:" : "board:") + s.id,
       },
-      (section) =>
-        viewMode() === "list"
-          ? VStack({ spacing: 4 }, [
-              HStack({ spacing: 6 }, [
-                Text(() => columnTitle(section().col))
-                  .font(10)
-                  .weight("semibold")
-                  .color("tertiary"),
-                Spacer(),
-                Text(() => String((section().items ?? []).length))
-                  .font(10)
-                  .monospaced()
-                  .color("tertiary"),
-              ]).paddingHorizontal(10),
-              ForEach(
-                {
-                  items: () => (section().items ?? []).slice(0, MAX_BEADS),
-                  key: (s) => s.key ?? s.value,
-                },
-                (s) => listRow(s, w),
-              ),
-            ])
-          : kanbanColumn(section, w),
+      (section) => kanbanColumn(section, w),
     ),
   ]);
 }
 
 function surfaces(w) {
-  return VStack({ spacing: 4 }, [
-    HStack({ spacing: 6 }, [
-      Text("SURFACES").font(10).weight("semibold").color("tertiary"),
-      Spacer(),
-      Text(() => String((w().tabs ?? []).length))
-        .font(10)
-        .monospaced()
-        .color("tertiary"),
-    ]).paddingHorizontal(10),
+  return VStack({ spacing: 2 }, [
+    sectionLabel(
+      "SURFACES",
+      () => (w().tabs ?? []).length,
+    ),
     ForEach(
       {
         items: () => (w().tabs ?? []).slice(0, MAX_TABS),
@@ -483,18 +463,11 @@ function surfaces(w) {
 }
 
 function hostHeader() {
-  return HStack({ spacing: 6 }, [
-    Text("HOST").font(10).weight("semibold").color("tertiary"),
-    Spacer(),
-    Text(() => String(liveWorkspaces().length))
-      .font(10)
-      .monospaced()
-      .color("tertiary"),
-  ]).paddingHorizontal(10);
+  return sectionLabel("HOST", () => liveWorkspaces().length);
 }
 
 function selectedHeader() {
-  return VStack({ spacing: 4 }, [
+  return VStack({ spacing: 2 }, [
     HStack({ spacing: 8 }, [
       Text(() => data.selectedTitle() ?? "")
         .font(13)
@@ -507,10 +480,10 @@ function selectedHeader() {
       unreadBadge(() => selectedWorkspace()?.unread ?? 0),
     ])
       .paddingHorizontal(10)
-      .paddingVertical(() => (data.selectedTitle() ? 8 : 0))
-      .cornerRadius(10)
-      .background(() => (data.selectedTitle() ? WASH : null))
-      .hoverBackground(() => (data.selectedTitle() ? WASH_SOFT : null))
+      .paddingVertical(() => (data.selectedTitle() ? 6 : 0))
+      .cornerRadius(8)
+      .background(() => (data.selectedTitle() ? WASH_FAINT : null))
+      .hoverBackground(() => (data.selectedTitle() ? WASH : null))
       .frame({ maxWidth: "infinity" }),
     ForEach(
       {
@@ -538,10 +511,11 @@ sidebar(
         Spacer(),
         Text(() => (beadCount() ? String(beadCount()) : ""))
           .font(11)
-          .monospaced()
           .color("tertiary"),
       ]).paddingHorizontal(10),
-      HStack({ spacing: 8 }, [viewToggle(), Spacer(), scopeToggle()]).paddingHorizontal(6),
+      HStack({ spacing: 4 }, [viewToggle(), Spacer(), scopeToggle()]).paddingHorizontal(
+        10,
+      ),
       selectedHeader(),
       ForEach(
         {
@@ -550,6 +524,7 @@ sidebar(
         },
         (w) => beadsBoard(w),
       ),
+      Divider(),
       hostHeader(),
       Text(() => (liveWorkspaces().length === 0 ? "No live host workspace" : ""))
         .font(11)
@@ -571,11 +546,11 @@ sidebar(
         },
         (w) => surfaces(w),
       ),
-      Text("Status moves: cmux-beads update. Board updates after sync or watch.")
+      Text("Status moves: cmux-beads update. Updates after sync or watch.")
         .font(11)
         .color("tertiary")
         .paddingHorizontal(10)
-        .lineLimit(3),
+        .lineLimit(2),
       Spacer(),
     ]).paddingHorizontal(6),
   { surface: "glass" },

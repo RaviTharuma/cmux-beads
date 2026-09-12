@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.4] - 2026-09-12
+
+Native cmux right-sidebar chrome for the Beads Board / List.
+
+### Changed
+
+- `sidebars/beads.js` matches Files / Find / Dock and host examples
+  (`panel-todo`, `panel-sessions`): flat rows (transparent idle, wash hover),
+  6–8pt corners, 11pt scope chips, no card fills or brand palette.
+- `sidebars/beads.swift` uses the same flat row / section-label density
+  (no filled status cards, no decorative hero icon).
+- Column headers stay quiet section labels — no kanban “wells”.
+
 ## [0.2.3] - 2026-09-12
 
 Trello-like Beads kanban in the right sidebar: Board / List, focus-scoping to

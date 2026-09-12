@@ -12,10 +12,9 @@
 // rendering, not an iframe and not a PTY stuffed in a pane. Root is a view
 // expression, not a struct. Bind only live cmux context: workspaces, tabs,
 // statuses, agents, progress, git, color. No invented team or fake rows.
-// The Beads board is the product. Host workspaces are the switcher.
-// Bead rows appear after `cmux-beads sync` / `watch` writes bead:<id> keys.
-// Chrome uses Ghostty/cmux theme tokens so dark/light follow the host.
-// Kanban columns group projected pills by status (Trello-like board).
+// Chrome matches Files / Find / Dock: glass surface, 14pt title, 10/13 type,
+// 8pt continuous corners, host washes — flat rows, no card fills or shadows.
+// Kanban columns are quiet section labels over the same row chrome.
 
 func hasText(_ value) -> Bool {
   return value != nil && value != ""
@@ -82,24 +81,24 @@ func tabFocusId(_ t) -> String {
   return t.id
 }
 
-func beadsStatusChip(_ s) -> some View {
+// Flat row: 3pt rail + host type, no filled card chrome.
+func beadsStatusRow(_ s) -> some View {
   HStack(spacing: 0) {
-    RoundedRectangle(cornerRadius: 2)
-      .frame(width: 3, height: 36)
+    RoundedRectangle(cornerRadius: 1)
+      .frame(width: 3, height: 28)
       .foregroundColor(statusTint(s))
     Text(statusLabel(s))
       .font(.system(size: 13))
-      .fontWeight(.semibold)
       .foregroundColor("primary")
       .lineLimit(1)
-      .padding(.leading, 9)
+      .padding(.leading, 8)
     Spacer()
   }
   .padding(.horizontal, 10)
-  .padding(.vertical, 7)
+  .padding(.vertical, 6)
   .background {
-    RoundedRectangle(cornerRadius: 10)
-      .foregroundColor("#7f7f7f14")
+    RoundedRectangle(cornerRadius: 8)
+      .foregroundColor("#7f7f7f00")
   }
 }
 
@@ -184,27 +183,27 @@ func beadsTabRow(_ t) -> some View {
     .padding(.vertical, 5)
     .padding(.horizontal, 10)
     .background {
-      RoundedRectangle(cornerRadius: 7)
-        .foregroundColor("#7f7f7f14")
+      RoundedRectangle(cornerRadius: 8)
+        .foregroundColor("#7f7f7f00")
     }
   }
 }
 
 func beadsKanbanColumn(_ title: String, _ w, _ col: String) -> some View {
-  VStack(alignment: .leading, spacing: 4) {
+  VStack(alignment: .leading, spacing: 2) {
     Text(title)
       .font(.system(size: 10))
       .fontWeight(.semibold)
       .foregroundColor("tertiary")
       .padding(.horizontal, 10)
     ForEach(w.statuses.filter { isColumn($0, col) }.prefix(24)) { s in
-      beadsStatusChip(s)
+      beadsStatusRow(s)
     }
   }
 }
 
 func beadsBoard(_ w) -> some View {
-  VStack(alignment: .leading, spacing: 8) {
+  VStack(alignment: .leading, spacing: 6) {
     if hasStatuses(w) {
       beadsKanbanColumn("OPEN", w, "open")
       beadsKanbanColumn("IN PROGRESS", w, "in_progress")
@@ -215,9 +214,10 @@ func beadsBoard(_ w) -> some View {
       beadsKanbanColumn("CLOSED", w, "closed")
     }
     if !hasStatuses(w) {
-      Text("Run cmux-beads watch to load the Beads board.")
+      Text("Run cmux-beads watch to load the board.")
         .font(.caption)
         .foregroundColor("tertiary")
+        .padding(.horizontal, 10)
     }
   }
 }
@@ -229,8 +229,10 @@ func hostSurfaces(_ w) -> some View {
         .font(.system(size: 10))
         .fontWeight(.semibold)
         .foregroundColor("tertiary")
+        .padding(.horizontal, 10)
       ForEach(w.agents.prefix(8)) { a in
         beadsAgentChip(a)
+          .padding(.horizontal, 10)
       }
     }
     if hasTabs(w) {
@@ -238,6 +240,7 @@ func hostSurfaces(_ w) -> some View {
         .font(.system(size: 10))
         .fontWeight(.semibold)
         .foregroundColor("tertiary")
+        .padding(.horizontal, 10)
       ForEach(w.tabs.prefix(12)) { t in
         beadsTabRow(t)
       }
@@ -246,11 +249,8 @@ func hostSurfaces(_ w) -> some View {
 }
 
 ScrollView {
-  VStack(alignment: .leading, spacing: 10) {
-    HStack(spacing: 8) {
-      Image(systemName: "circle.grid.3x3")
-        .foregroundColor("accent")
-        .symbolRenderingMode(.hierarchical)
+  VStack(alignment: .leading, spacing: 8) {
+    HStack(spacing: 6) {
       Text("Beads")
         .font(.system(size: 14))
         .fontWeight(.semibold)
@@ -260,6 +260,8 @@ ScrollView {
         .font(.system(size: 11, design: .monospaced))
         .foregroundColor("tertiary")
     }
+    .padding(.horizontal, 10)
+
     if hasText(selectedTitle) {
       Text(selectedTitle)
         .font(.system(size: 13))
@@ -267,14 +269,12 @@ ScrollView {
         .foregroundColor("primary")
         .lineLimit(1)
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background {
-          RoundedRectangle(cornerRadius: 10)
+          RoundedRectangle(cornerRadius: 8)
             .foregroundColor("#7f7f7f24")
         }
     }
-
-    Divider()
 
     ForEach(workspaces.filter { $0.selected }.prefix(1)) { w in
       beadsBoard(w)
@@ -293,10 +293,12 @@ ScrollView {
           .font(.system(size: 10, design: .monospaced))
           .foregroundColor("tertiary")
       }
+      .padding(.horizontal, 10)
       if workspaces.count == 0 {
         Text("No live host workspace")
           .font(.caption)
           .foregroundColor("tertiary")
+          .padding(.horizontal, 10)
       }
       if workspaces.count > 0 {
         Reorderable(workspaces.prefix(40), move: "workspace.reorder") { w in
@@ -311,10 +313,12 @@ ScrollView {
 
     Divider()
 
-    Text("Status moves: cmux-beads update. Board updates after sync or watch.")
+    Text("Status moves: cmux-beads update. Updates after sync or watch.")
       .font(.caption)
       .foregroundColor("tertiary")
-      .lineLimit(3)
+      .lineLimit(2)
+      .padding(.horizontal, 10)
   }
-  .padding(12)
+  .padding(.horizontal, 6)
+  .padding(.vertical, 8)
 }
