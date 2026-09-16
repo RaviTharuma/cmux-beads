@@ -4,7 +4,7 @@
 
 A **cmux right-sidebar tab**: the official [Beads](https://github.com/steveyegge/beads) (`bd` CLI) GUI inside [cmux](https://github.com/manaflow-ai/cmux). Beads is a **tab on the existing right sidebar**, a sibling of Files / Find / Dock — not a Bonsplit pane, not a replacement for the left workspace list, not an iframe or WKWebView.
 
-The sidebar interpreter cannot spawn `bd`. `cmux-beads watch` projects issues into live `bead:<id>` status pills; the tab renders them.
+The sidebar interpreter cannot spawn `bd`. `cmux-beads watch` projects issues into live `bead:<id>` status pills; the tab renders them as a Trello-like **Board / List** with **Host / Focus / Assigned** scope and native cmux chrome.
 
 Requires **`bd` v0.60+**.
 
@@ -90,6 +90,8 @@ cmux-beads watch --cwd . --interval 3
 cmux-beads update lab-2 --status in_progress
 ```
 
+Shared flags for `sync` / `watch` / `status`: `--cwd`, `--workspace`, `--include-closed`, `--dry-run`, `--json`, `--interval` (watch).
+
 `--workspace` or `CMUX_WORKSPACE_ID` selects the host. If both are missing, `cmux identify --json` is used. The CLI will not guess a random workspace.
 
 `scripts/install.sh` is a contributor/dev helper: it builds the release binary and symlinks it into `~/.local/bin`. It is not an end-user install path.
@@ -110,6 +112,17 @@ command = ["target/release/cmux-beads"]
 command = ["cargo", "build", "--release"]
 ```
 
+## Docs
+
+| Doc | Contents |
+| --- | --- |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Layers, projection flow, Board/List contract |
+| [STACK.md](STACK.md) | Languages, crates, external tools |
+| [SECURITY.md](SECURITY.md) | Trust boundaries and reporting |
+| [DISCLAIMER.md](DISCLAIMER.md) | Product boundaries and warranty pointer |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
+| [LICENSE](LICENSE) | MIT |
+
 ## Test
 
 ```sh
@@ -121,4 +134,4 @@ cargo build --release
 
 ## License
 
-[MIT](LICENSE). See [CHANGELOG](CHANGELOG.md).
+[MIT](LICENSE). See [DISCLAIMER](DISCLAIMER.md) and [CHANGELOG](CHANGELOG.md).
