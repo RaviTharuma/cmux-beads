@@ -4,6 +4,7 @@
 //! shell-injected. `bd list --json` (or `bd ready --json`) is the source of
 //! truth for the board.
 
+pub mod events;
 pub mod types;
 
 use std::io;

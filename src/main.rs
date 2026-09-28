@@ -89,10 +89,17 @@ fn dispatch(command: Command) -> Result<()> {
         Command::Sync(opts) => run_sync(opts),
         Command::Watch(opts) => {
             let cwd = resolve_cwd(opts.cwd.clone());
-            eprintln!(
-                "cmux-beads watch: interval {}s (Ctrl-C to stop)",
-                opts.interval.as_secs()
-            );
+            if opts.force_poll {
+                eprintln!(
+                    "cmux-beads watch: --force-poll every {}s (Ctrl-C to stop)",
+                    opts.interval.as_secs()
+                );
+            } else {
+                eprintln!(
+                    "cmux-beads watch: trying bd events (fallback poll {}s)",
+                    opts.interval.as_secs()
+                );
+            }
             sync::watch_loop(&ProcessCmux, &opts, &cwd)
         }
         Command::Status(opts) => run_sync(opts),
@@ -269,8 +276,8 @@ mod tests {
             "plugin name must be cmux-beads"
         );
         assert!(
-            raw.contains("version = \"0.2.4\""),
-            "plugin version must be 0.2.4"
+            raw.contains("version = \"0.2.5\""),
+            "plugin version must be 0.2.5"
         );
         assert!(
             raw.contains("target/release/cmux-beads"),
@@ -364,9 +371,9 @@ mod tests {
     }
 
     #[test]
-    fn changelog_and_crate_are_0_2_4() {
-        assert!(include_str!("../CHANGELOG.md").contains("## [0.2.4]"));
-        assert!(include_str!("../Cargo.toml").contains("version = \"0.2.4\""));
+    fn changelog_and_crate_are_0_2_5() {
+        assert!(include_str!("../CHANGELOG.md").contains("## [0.2.5]"));
+        assert!(include_str!("../Cargo.toml").contains("version = \"0.2.5\""));
     }
 
     #[test]

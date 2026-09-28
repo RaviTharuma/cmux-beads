@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.5] - 2026-09-28
+
+Prefer Beads events journal for `cmux-beads watch` (issue #8).
+
+### Added
+
+- `cmux-beads watch` follows `bd events tail --follow` when Beads ≥1.3.0 and
+  `events-journal` is on (`bd config set events-journal true`). Each record
+  updates only the changed `bead:<id>` pill (checkpointed `--since`).
+- Rebuild from `bd list` on `events_journal_truncated` (and after the stream ends).
+- `--force-poll` keeps the previous 3s `bd list --json` loop.
+- Poll fallback when `bd` < 1.3.0 or the journal is disabled.
+
+### Changed
+
+- Help / README describe events-first watch with poll fallback.
+
 ## [0.2.4] - 2026-09-12
 
 Native cmux right-sidebar chrome for the Beads Board / List.

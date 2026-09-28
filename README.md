@@ -6,7 +6,8 @@ A **cmux right-sidebar tab**: the official [Beads](https://github.com/steveyegge
 
 The sidebar interpreter cannot spawn `bd`. `cmux-beads watch` projects issues into live `bead:<id>` status pills; the tab renders them.
 
-Requires **`bd` v0.60+**.
+Requires **`bd` v0.60+**. For event-driven `watch` (no 3s poll), use **Beads ≥1.3.0** and
+`bd config set events-journal true`. Older `bd` or a disabled journal keeps the poll fallback.
 
 ## Install
 
@@ -35,7 +36,9 @@ Keep this running in the repo (or pass `--cwd` / `--workspace`):
 cmux-beads watch
 ```
 
-Each tick writes `cmux set-status bead:<id>` and clears stale `bead:*` keys.
+When the events journal is on, `watch` follows `bd events tail --follow` and updates only
+the changed pill. Otherwise it polls `bd list --json` every 3s (or `--interval`).
+Use `--force-poll` to stay on the poll path. Full sync still clears stale `bead:*` keys.
 
 The PTY TUI hosted by the plugin manager is a keyboard-only fallback (no mouse). It is not the GUI product.
 
@@ -77,7 +80,7 @@ only.
 | Command | What it does |
 | --- | --- |
 | `sync` | One-shot `bd` → `cmux set-status` (`bead:<id>`) |
-| `watch` | Loop sync (default 3s) |
+| `watch` | Events journal when available; else poll (default 3s) |
 | `status` | Print the projection plan |
 | `clear` | Remove `bead:*` keys only |
 | `update <id> --status S` | Persist via `bd update -s` (not the sidebar), then refresh pills |
@@ -86,7 +89,8 @@ only.
 
 ```sh
 cmux-beads sync --workspace <id>
-cmux-beads watch --cwd . --interval 3
+cmux-beads watch --cwd .
+cmux-beads watch --force-poll --interval 3
 cmux-beads update lab-2 --status in_progress
 ```
 
@@ -100,7 +104,7 @@ cmux-beads update lab-2 --status in_progress
 [plugin]
 name = "cmux-beads"
 kind = "sidebar"
-version = "0.2.4"
+version = "0.2.5"
 description = "Official Beads tab on the cmux right sidebar; PTY TUI is keyboard-only fallback"
 
 [run]
