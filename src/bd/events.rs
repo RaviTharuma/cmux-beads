@@ -394,7 +394,7 @@ pub fn event_clears_pill(record: &EventRecord, include_closed: bool) -> bool {
 
 /// Issue snapshot to project, if this event carries one worth applying.
 #[must_use]
-pub fn event_issue<'a>(record: &'a EventRecord) -> Option<&'a Bead> {
+pub fn event_issue(record: &EventRecord) -> Option<&Bead> {
     record.issue.as_ref().filter(|bead| !bead.id.is_empty())
 }
 
