@@ -98,6 +98,20 @@ cmux-beads update lab-2 --status in_progress
 
 `scripts/install.sh` is a contributor/dev helper: it builds the release binary and symlinks it into `~/.local/bin`. It is not an end-user install path.
 
+
+## Fleet Beads / Homelab
+
+Homelab Beads storage is **central Dolt SQL over Tailscale**, not `bd serve` HTTP.
+
+- Host: `beads.jaguar-fish.ts.net:3306` (k8s ns `beads`, STS `beads`)
+- Per-repo `.beads` with `dolt_mode: server`
+- Client env (creds from your secret store — never plaintext in this repo):
+  - `BEADS_DOLT_SERVER_HOST=beads.jaguar-fish.ts.net`
+  - `BEADS_DOLT_SERVER_PORT=3306`
+  - `BEADS_DOLT_SERVER_USER=root`
+
+`cmux-beads` owns **status pills only**. `cmux-beads watch` talks to the local `bd` CLI (`list` / events journal). It never starts or requires `bd serve`. Seats must not spin `bd serve` for pills or sync — configure `.beads` + `BEADS_DOLT_*` instead. Storage/sync against central Dolt is a `bd` / `.beads` client concern, orthogonal to the pill projector.
+
 ## Manifest
 
 ```toml

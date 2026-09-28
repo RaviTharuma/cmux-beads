@@ -18,6 +18,7 @@ Prefer Beads events journal for `cmux-beads watch` (issue #8).
 ### Changed
 
 - Help / README describe events-first watch with poll fallback.
+- Docs: Fleet Beads / Homelab standing — central Dolt SQL (not `bd serve`); `watch` uses local `bd` only.
 
 ## [0.2.4] - 2026-09-12
 
