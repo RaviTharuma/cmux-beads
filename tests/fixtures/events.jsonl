@@ -1,0 +1,4 @@
+{"seq":1,"ts":"2026-01-02T03:04:05Z","op":"create","issue_id":"lab-9","actor":"worker","issue":{"id":"lab-9","title":"wire events","status":"open","priority":1,"issue_type":"task"}}
+{"seq":2,"ts":"2026-01-02T03:05:00Z","op":"update","issue_id":"lab-9","issue":{"id":"lab-9","title":"wire events","status":"in_progress","priority":1,"issue_type":"task"}}
+{"seq":3,"ts":"2026-01-02T03:06:00Z","op":"close","issue_id":"lab-9","actor":"worker","issue":{"id":"lab-9","title":"wire events","status":"closed","priority":1}}
+{"seq":4,"ts":"2026-01-02T03:07:00Z","op":"delete","issue_id":"lab-9","issue":null}

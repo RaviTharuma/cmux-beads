@@ -110,7 +110,7 @@ Product (native UI, mouse / click / drag-and-drop):
 
 Commands:
   sync      one-shot project bd issues → cmux set-status (bead:<id>)
-  watch     loop sync (default 3s)
+  watch     events journal when available; else poll (default 3s)
   status    print the current projection plan
   clear     remove bead:* keys only
   update    persist a bd status change via argv, then refresh pills
@@ -129,6 +129,8 @@ Flags:
   --cwd DIR            bd working directory (default: focused pane cwd)
   --workspace ID       cmux workspace for set-status (or CMUX_WORKSPACE_ID)
   --include-closed     project closed issues too
+  --interval SECS      poll interval when not using events (default 3)
+  --force-poll         always poll `bd list` (skip events journal)
 "
     )
 }
@@ -173,6 +175,7 @@ where
             "--include-closed" => opts.include_closed = true,
             "--dry-run" => opts.dry_run = true,
             "--json" => opts.json = true,
+            "--force-poll" => opts.force_poll = true,
             "--interval" => {
                 let raw = require_string(args, "--interval")?;
                 let secs: u64 = raw.parse().map_err(|_| {
